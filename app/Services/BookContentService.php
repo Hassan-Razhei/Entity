@@ -4,24 +4,28 @@ namespace App\Services;
 
 use App\Enums\ContentNodeType;
 use App\Models\Book;
-use App\Models\BookChild;
+use App\Models\ContentNode;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class BookContentService
 {
-    public function addChild(Book $book, array $data): BookChild
+    public function addChild(Book $book, array $data): ContentNode
     {
-        return BookChild::create([
-            'book_id' => $book->id,
+        $order = $data['order'] ?? (($book->nodes()->max('order') ?? 0) + 1);
+        $content = $data['content'] ?? null;
+        $contentHtml = $data['content_html'] ?? $content;
+
+        return $book->nodes()->create([
             'parent_id' => $data['parent_id'] ?? null,
             'type' => $data['type'] ?? ContentNodeType::CHAPTER->value,
             'title' => $data['title'],
-            'slug' => $data['slug'] ?? \App\Helpers\SlugHelper::generate($data['title']) . '-' . uniqid(),
-            'order' => $data['order'] ?? 0,
-            'content' => $data['content'] ?? null,
-            'content_blocks' => $data['content_blocks'] ?? [],
+            'slug' => $data['slug'] ?? (\App\Helpers\SlugHelper::generate($data['title']) ?: Str::uuid()->toString()),
+            'order' => $order,
+            'content_html' => $contentHtml,
+            'plain_text' => $contentHtml ? strip_tags($contentHtml) : null,
+            'content_json' => $data['content_blocks'] ?? [],
             'metadata' => $data['metadata'] ?? [],
-            'last_updated' => now(),
         ]);
     }
 
@@ -30,17 +34,17 @@ class BookContentService
      */
     public function getHierarchy(Book $book): Collection
     {
-        return BookChild::where('book_id', $book->id)
+        return $book->nodes()
             ->orderBy('order')
-            ->get(['_id', 'parent_id', 'type', 'title', 'order']);
+            ->get(['id', 'parent_id', 'type', 'title', 'order']);
     }
 
     /**
      * Add a block to a specific child unit.
      */
-    public function addBlock(BookChild $child, array $block): BookChild
+    public function addBlock(ContentNode $child, array $block): ContentNode
     {
-        $blocks = $child->content_blocks ?? [];
+        $blocks = $child->content_json ?? [];
 
         if (isset($block['body'])) {
             $blocks[] = [
@@ -53,25 +57,27 @@ class BookContentService
                 ]
             ];
 
-            // Append to HTML content field for Editor compatibility
-            $currentContent = $child->content ?? '';
-            $child->content = $currentContent . '<p>' . htmlspecialchars($block['body']) . '</p>';
+            $currentContent = $child->content_html ?? '';
+            $child->content_html = $currentContent . '<p>' . htmlspecialchars($block['body']) . '</p>';
+            $child->plain_text = strip_tags($child->content_html);
         } else {
             $blocks[] = $block;
         }
 
-        $child->update(['content_blocks' => $blocks, 'last_updated' => now()]);
+        $child->content_json = $blocks;
+        $child->save();
 
         return $child;
     }
+
     /**
      * Batch update order of content items.
      */
     public function updateOrder(Book $book, array $items): void
     {
         foreach ($items as $item) {
-            BookChild::where('book_id', $book->id)
-                ->where('_id', $item['id'])
+            $book->nodes()
+                ->where('id', $item['id'])
                 ->update([
                     'order' => $item['order'],
                     'parent_id' => $item['parent_id'] ?? null

@@ -25,14 +25,13 @@ class ReaderNavigationTest extends DuskTestCase
                 'slug' => 'test-nav-book'
             ]);
 
-            $chapter = BookChild::create([
-                'book_id' => $book->id,
+            $chapter = $book->nodes()->create([
                 'title' => 'Test Chapter 1',
                 'slug' => 'test-chapter-1',
                 'type' => 'chapter',
                 'order' => 0,
                 'parent_id' => null,
-                'content_blocks' => [
+                'content_json' => [
                     'type' => 'doc',
                     'content' => [
                         [

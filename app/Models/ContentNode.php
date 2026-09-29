@@ -43,11 +43,29 @@ class ContentNode extends Model
         'title',
         'slug',
         'order',
+        'content',
         'content_html',
         'plain_text',
         'content_json',
+        'content_blocks',
+        'json_content',
         'metadata',
         'versions',
+        'is_manually_edited',
+        'last_editor_id',
+        'last_updated',
+        'start_time',
+        'end_time',
+        'folio_number',
+        'image_url',
+        'description',
+        'resource_url',
+        'transcription_status',
+        'page_number',
+        'book_id',
+        'manuscript_id',
+        'audio_id',
+        'video_id',
     ];
 
     protected $casts = [
@@ -60,6 +78,15 @@ class ContentNode extends Model
     protected static function booted()
     {
         static::creating(function ($node) {
+            if (empty($node->type)) {
+                $node->type = match ($node->entity_type) {
+                    'book' => 'chapter',
+                    'manuscript' => 'folio',
+                    'audio', 'video' => 'segment',
+                    default => 'paragraph',
+                };
+            }
+
             if (empty($node->slug)) {
                 $node->slug = \App\Helpers\SlugHelper::generate($node->title) ?: Str::uuid()->toString();
             }
@@ -105,6 +132,7 @@ class ContentNode extends Model
     {
         $versions = $this->versions ?? [];
         $versions[] = [
+            'content_blocks' => $this->content_blocks,
             'content_json' => $this->content_json,
             'content_html' => $this->content_html,
             'metadata' => $this->metadata,
@@ -116,7 +144,103 @@ class ContentNode extends Model
         $this->save();
     }
 
-    // ==================== Accessors مساعدة للتوافق السلس ====================
+    // ==================== Accessors & Mutators مساعدة للتوافق السلس ====================
+
+    /**
+     * هل تم التعديل يدوياً من المحرر
+     */
+    public function getIsManuallyEditedAttribute(): bool
+    {
+        return (bool) ($this->metadata['is_manually_edited'] ?? false);
+    }
+
+    public function setIsManuallyEditedAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['is_manually_edited'] = (bool) $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * خاصية _id متوافقة مع الأنظمة السابقة
+     */
+    public function get_IdAttribute(): string
+    {
+        return (string) $this->id;
+    }
+
+    public function set_IdAttribute($value): void
+    {
+        $this->attributes['id'] = $value;
+    }
+
+    /**
+     * خاصية المحتوى (content) متوافقة مع الأنظمة السابقة
+     */
+    public function getContentAttribute(): ?string
+    {
+        return $this->content_html ?? $this->plain_text;
+    }
+
+    public function setContentAttribute(?string $value): void
+    {
+        $this->attributes['content_html'] = $value;
+        $this->attributes['plain_text'] = $value ? strip_tags($value) : null;
+    }
+
+    /**
+     * خاصية مجموعات المحتوى المنظم (content_blocks) متوافقة مع الأنظمة السابقة
+     */
+    public function getContentBlocksAttribute(): array
+    {
+        return $this->content_json ?? [];
+    }
+
+    public function setContentBlocksAttribute(?array $value): void
+    {
+        $this->attributes['content_json'] = json_encode($value ?? []);
+    }
+
+    /**
+     * خاصية json_content متوافقة مع محرر النصوص الموحد
+     */
+    public function getJsonContentAttribute(): ?array
+    {
+        return $this->content_json;
+    }
+
+    public function setJsonContentAttribute(?array $value): void
+    {
+        $this->content_json = $value;
+    }
+
+    /**
+     * معرف آخر محرر
+     */
+    public function getLastEditorIdAttribute(): ?string
+    {
+        return $this->metadata['last_editor_id'] ?? null;
+    }
+
+    public function setLastEditorIdAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['last_editor_id'] = $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * وقت آخر تعديل
+     */
+    public function getLastUpdatedAttribute(): ?\Illuminate\Support\Carbon
+    {
+        return $this->updated_at;
+    }
+
+    public function setLastUpdatedAttribute($value): void
+    {
+        // Automatically handled by Eloquent timestamps
+    }
 
     /**
      * للصوتيات والمرئيات: بداية المقطع
@@ -124,6 +248,13 @@ class ContentNode extends Model
     public function getStartTimeAttribute(): ?float
     {
         return isset($this->metadata['start_time']) ? (float) $this->metadata['start_time'] : null;
+    }
+
+    public function setStartTimeAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['start_time'] = (float) $value;
+        $this->metadata = $meta;
     }
 
     /**
@@ -134,6 +265,13 @@ class ContentNode extends Model
         return isset($this->metadata['end_time']) ? (float) $this->metadata['end_time'] : null;
     }
 
+    public function setEndTimeAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['end_time'] = (float) $value;
+        $this->metadata = $meta;
+    }
+
     /**
      * للمخطوطات: رقم اللوحة
      */
@@ -142,11 +280,132 @@ class ContentNode extends Model
         return $this->metadata['folio_number'] ?? null;
     }
 
+    public function setFolioNumberAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['folio_number'] = $value;
+        $this->metadata = $meta;
+    }
+
     /**
      * للمخطوطات: رابط صورة اللوحة
      */
     public function getImageUrlAttribute(): ?string
     {
         return $this->metadata['image_url'] ?? null;
+    }
+
+    public function setImageUrlAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['image_url'] = $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * الوصف للمشاهد أو المقاطع
+     */
+    public function getDescriptionAttribute(): ?string
+    {
+        return $this->metadata['description'] ?? null;
+    }
+
+    public function setDescriptionAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['description'] = $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * رابط المورد الخارجي
+     */
+    public function getResourceUrlAttribute(): ?string
+    {
+        return $this->metadata['resource_url'] ?? null;
+    }
+
+    public function setResourceUrlAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['resource_url'] = $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * حالة النسخ/التفريغ
+     */
+    public function getTranscriptionStatusAttribute(): ?string
+    {
+        return $this->metadata['transcription_status'] ?? null;
+    }
+
+    public function setTranscriptionStatusAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['transcription_status'] = $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * رقم الصفحة
+     */
+    public function getPageNumberAttribute(): ?int
+    {
+        return isset($this->metadata['page_number']) ? (int) $this->metadata['page_number'] : null;
+    }
+
+    public function setPageNumberAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['page_number'] = (int) $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * محولات المفاتيح الأجنبية القديمة للتوافق الشامل
+     */
+    public function getBookIdAttribute(): ?string
+    {
+        return $this->entity_type === 'book' ? $this->entity_id : null;
+    }
+
+    public function setBookIdAttribute($value): void
+    {
+        $this->attributes['entity_id'] = $value;
+        $this->attributes['entity_type'] = 'book';
+    }
+
+    public function getManuscriptIdAttribute(): ?string
+    {
+        return $this->entity_type === 'manuscript' ? $this->entity_id : null;
+    }
+
+    public function setManuscriptIdAttribute($value): void
+    {
+        $this->attributes['entity_id'] = $value;
+        $this->attributes['entity_type'] = 'manuscript';
+    }
+
+    public function getAudioIdAttribute(): ?string
+    {
+        return $this->entity_type === 'audio' ? $this->entity_id : null;
+    }
+
+    public function setAudioIdAttribute($value): void
+    {
+        $this->attributes['entity_id'] = $value;
+        $this->attributes['entity_type'] = 'audio';
+    }
+
+    public function getVideoIdAttribute(): ?string
+    {
+        return $this->entity_type === 'video' ? $this->entity_id : null;
+    }
+
+    public function setVideoIdAttribute($value): void
+    {
+        $this->attributes['entity_id'] = $value;
+        $this->attributes['entity_type'] = 'video';
     }
 }

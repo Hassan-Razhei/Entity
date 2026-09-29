@@ -10,9 +10,11 @@ return new class extends Migration {
         Schema::create('collections', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->bigInteger('serial_number')->autoIncrement()->unique();
+            $table->foreignUuid('user_id')->nullable()->constrained()->nullOnDelete();
             $table->string('name');
-            $table->string('slug')->unique()->index();
+            $table->string('slug')->nullable()->index();
             $table->text('description')->nullable();
+            $table->boolean('is_public')->default(false);
             $table->timestamps();
             $table->softDeletes();
         });

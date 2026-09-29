@@ -8,17 +8,14 @@ use App\Models\Audio;
 use App\Models\Video;
 use App\Models\Manuscript;
 use App\Models\Entity;
-use App\Models\BookChild;
-use App\Models\ManuscriptPage;
-use App\Models\AudioSegment;
-use App\Models\VideoSegment;
-use App\Models\EntityContent;
+use App\Models\ContentNode;
 use App\Services\EntityContentService;
 use App\Services\ReadingPositionService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ReaderController extends Controller
 {
@@ -33,28 +30,23 @@ class ReaderController extends Controller
 
     /**
      * Display the Reader for a specific entity/content node.
-     * Path: /reader/{type}/{slug}
+     * Path: /reader/{type}/{slug}/{childId?}
      */
-    public function show(string $type, string $slug, string $childId = null)
+    public function show(string $type, string $slug, ?string $childId = null)
     {
         // 1. Resolve Parent Entity
         $parentEntity = $this->resolveParentEntity($type, $slug);
 
         if (!$parentEntity) {
-            // fallback: check if slug belongs to a child (legacy support or direct node link)
             $childNode = $this->resolveEntityNode($type, $slug);
-            if ($childNode) {
-                 // Redirect to canonical parent-based URL
-                 $entityType = EntityType::tryFrom($type);
-                 $foreignKey = $this->getForeignKey($entityType);
-                 $parent = $childNode->getRelationValue(str_replace('_id', '', $foreignKey)) ?: $this->resolveParentModel($entityType)::find($childNode->$foreignKey);
-                 return redirect()->route('reader.show', ['type' => $type, 'slug' => $parent->slug, 'childId' => $childNode->_id ?? $childNode->id]);
+            if ($childNode && $childNode->entity) {
+                 return redirect()->route('reader.show', ['type' => $type, 'slug' => $childNode->entity->slug, 'childId' => $childNode->id]);
             }
             abort(404, 'المصدر غير موجود');
         }
 
         $entity = $parentEntity;
-        $entity->load(['authors', 'categories', 'tags']);
+        $entity->load(['authors', 'categories', 'tags', 'children']);
 
         // 2. Resolve Content
         $node = null;
@@ -64,61 +56,46 @@ class ReaderController extends Controller
         $currentNodeSlug = null;
 
         if ($childId) {
-            $entityType = EntityType::tryFrom($type);
-            $modelClass = $this->getContentModelClass($entityType);
-            $node = $modelClass::find($childId);
-
-            // Validate child belongs to parent
-            $foreignKey = $this->getForeignKey($entityType);
-            if (!$node || $node->$foreignKey != $entity->id) {
-                // Try finding by slug if ID failed
-                $node = $modelClass::where('slug', $childId)
-                    ->where($foreignKey, $entity->id)
-                    ->first();
+            if (Str::isUuid($childId)) {
+                $node = $entity->nodes()->where('id', $childId)->first();
+            }
+            if (!$node) {
+                $node = $entity->nodes()->where('slug', $childId)->first();
             }
 
             if (!$node) {
                 abort(404, 'المقطع المحدد غير موجود');
             }
 
-            $htmlContent = $node->content ?? '';
-            $jsonContent = $node->json_content ?? ['type' => 'doc', 'content' => []];
+            $htmlContent = $node->content_html ?? $node->plain_text ?? '';
+            $jsonContent = $node->content_json ?? ['type' => 'doc', 'content' => []];
             $currentNodeSlug = $node->slug;
         } else {
             // FULL VIEW
             $htmlContent = $this->contentService->aggregateFullContent($entity);
             $isFullView = true;
-            
-            // For metadata/hierarchy we still point at first child or null
             $node = $this->contentService->getFirstChild($entity);
         }
 
-        // 3. Load Additional Metadata
-        $entity->load(['authors', 'categories', 'tags']);
-
-        // 4. Prepare Content Data
+        // 3. Prepare Content Data
         $data = $this->contentService->prepareEditorData($entity, $currentNodeSlug);
         
-        // 5. Get Reading Position for the User
+        // 4. Get Reading Position for the User
         $savedPosition = null;
         if (auth()->check()) {
             $savedPosition = $this->positionService->getPosition(auth()->user(), $entity);
         }
 
-        // 6. Special Handling for Manuscripts (Vertical Scroll)
+        // 5. Special Handling for Manuscripts (Vertical Scroll)
         $siblingsContent = [];
         if (EntityType::tryFrom($type) === EntityType::MANUSCRIPT) {
-            $siblingsContent = $entity->children->map(function($child) use ($type) {
-                // Determine content node for each child
-                $childNode = $child; 
-                // Logic usually handled in prepareEditorData, simplified here for read-only View
-                // If the child HAS content, use it.
+            $siblingsContent = $entity->children->map(function($child) {
                 return [
                     'id' => $child->id,
                     'slug' => $child->slug,
                     'title' => $child->title,
-                    'content' => $child->json_content ?? ['type' => 'doc', 'content' => []],
-                    'html_content' => $child->content ?? '',
+                    'content' => $child->content_json ?? ['type' => 'doc', 'content' => []],
+                    'html_content' => $child->content_html ?? $child->plain_text ?? '',
                     'metadata' => $child->metadata ?? [],
                 ];
             });
@@ -130,7 +107,7 @@ class ReaderController extends Controller
             'content' => $jsonContent,
             'html_content' => $htmlContent,
             'isFullView' => $isFullView,
-            'activeChildId' => $isFullView ? null : ($node->_id ?? $node->id),
+            'activeChildId' => $isFullView ? null : $node?->id,
             'activeSlug' => $currentNodeSlug,
             'hierarchy' => $entity->children, 
             'readingPosition' => $savedPosition,
@@ -174,29 +151,22 @@ class ReaderController extends Controller
         $entityType = EntityType::tryFrom($type);
         if (!$entityType) abort(404, "Unknown entity type");
 
-        // 1. Resolve Parent Entity
         $entity = $this->resolveParentEntity($type, $slug);
         
-        // If slug was a child, resolve from child
         if (!$entity) {
              $entity = $this->resolveEntity($type, $slug);
         }
 
-        // 2. Query Content Nodes
-        $contentModel = $this->getContentModelClass($entityType);
-        $foreignKey = $this->getForeignKey($entityType);
-
-        // Perform text search
-        $results = $contentModel::where($foreignKey, $entity->id)
+        // Query Content Nodes on PostgreSQL
+        $results = $entity->nodes()
             ->where(function($q) use ($query) {
-                $q->where('plain_text', 'LIKE', "%{$query}%")
-                  ->orWhere('title', 'LIKE', "%{$query}%");
+                $q->where('plain_text', 'ILIKE', "%{$query}%")
+                  ->orWhere('title', 'ILIKE', "%{$query}%");
             })
             ->orderBy('order', 'asc')
             ->get(); 
 
-        // 3. Format results with snippets
-        $formattedResults = $results->map(function($node) use ($query, $entityType) {
+        $formattedResults = $results->map(function($node) use ($query) {
             $snippet = '';
             $plainText = $node->plain_text ?? '';
             
@@ -209,18 +179,17 @@ class ReaderController extends Controller
                     if ($start > 0) $snippet = '...' . $snippet;
                     if (mb_strlen($plainText) > $start + $length) $snippet .= '...';
                 } else {
-                    // Query found in title, show start of content as snippet
                     $snippet = mb_substr($plainText, 0, 100) . '...';
                 }
             }
 
             return [
-                'id' => $node->_id ?? $node->id,
+                'id' => $node->id,
                 'slug' => $node->slug,
                 'title' => $node->title,
                 'snippet' => $snippet,
                 'timestamp' => $node->start_time ?? null,
-                'page' => $node->page_number ?? null,
+                'page' => $node->metadata['page_number'] ?? null,
             ];
         });
 
@@ -231,91 +200,26 @@ class ReaderController extends Controller
         ]);
     }
 
-    /**
-     * Resolve the parent entity based on a content node's slug.
-     */
     protected function resolveEntity(string $type, string $slug): Entity
     {
         $entityType = EntityType::tryFrom($type);
         if (!$entityType) abort(404, "Unknown entity type");
 
         $entityModel = $entityType->modelClass();
+        $node = ContentNode::where('slug', $slug)->firstOrFail();
 
-        $contentModel = $this->getContentModelClass($entityType);
-        $node = $contentModel::where('slug', $slug)->firstOrFail();
-
-        $foreignKey = $this->getForeignKey($entityType);
-
-        $entity = $entityModel::findOrFail($node->$foreignKey);
-
-        // Load hierarchy (children) based on type
-        if (in_array($entityType, [EntityType::MANUSCRIPT, EntityType::AUDIO, EntityType::VIDEO])) {
-            $childrenModel = match ($entityType) {
-                EntityType::MANUSCRIPT => ManuscriptPage::class,
-                EntityType::AUDIO => AudioSegment::class,
-                EntityType::VIDEO => VideoSegment::class,
-                default => null
-            };
-
-            if ($childrenModel) {
-                $children = $childrenModel::where($foreignKey, $entity->id)
-                    ->orderBy('order', 'asc')
-                    ->get();
-                $entity->setRelation('children', $children);
-            }
-        } elseif ($entityType === EntityType::BOOK) {
-            $children = BookChild::where('book_id', $entity->id)
-                ->orderBy('order', 'asc')
-                ->get();
-            $entity->setRelation('children', $children);
-        } else {
-            $entity->load('children');
-        }
+        $entity = $entityModel::findOrFail($node->entity_id);
+        $entity->load('children');
 
         return $entity;
     }
 
-    protected function resolveEntityNode(string $type, string $slug)
+    protected function resolveEntityNode(string $type, string $slug): ?ContentNode
     {
-        $entityType = EntityType::tryFrom($type);
-        if (!$entityType) return null;
-        
-        $contentModel = $this->getContentModelClass($entityType);
-        return $contentModel::where('slug', $slug)->first();
+        return ContentNode::where('slug', $slug)->first();
     }
 
-    protected function getForeignKey(EntityType $type): string
-    {
-        return match ($type) {
-            EntityType::BOOK => 'book_id',
-            EntityType::MANUSCRIPT => 'manuscript_id',
-            EntityType::AUDIO => 'audio_id',
-            EntityType::VIDEO => 'video_id',
-        };
-    }
-
-    protected function resolveParentModel(EntityType $type): string
-    {
-        return $type->modelClass();
-    }
-
-    /**
-     * Helper to get content model class name
-     */
-    protected function getContentModelClass(EntityType $type): string
-    {
-        return match ($type) {
-            EntityType::BOOK => BookChild::class,
-            EntityType::MANUSCRIPT => ManuscriptPage::class,
-            EntityType::AUDIO => AudioSegment::class,
-            EntityType::VIDEO => VideoSegment::class,
-        };
-    }
-
-    /**
-     * Resolve Parent Entity directly by slug.
-     */
-    protected function resolveParentEntity(string $type, string $slug)
+    protected function resolveParentEntity(string $type, string $slug): ?Entity
     {
         $entityType = EntityType::tryFrom($type);
         if (!$entityType) return null;

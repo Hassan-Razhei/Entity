@@ -23,7 +23,7 @@ use App\Models\Note;
 use App\Models\Collection;
 use App\Models\Series;
 use App\Models\Shelf;
-use App\Models\BookChild;
+use App\Models\ContentNode;
 use App\Services\BookContentService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -70,11 +70,7 @@ class SeedRealisticData extends Command
         Collection::query()->truncate();
         Series::query()->truncate();
         Shelf::query()->truncate();
-        BookChild::query()->truncate();
-        \App\Models\ManuscriptPage::query()->truncate();
-        \App\Models\AudioSegment::query()->truncate();
-        \App\Models\VideoSegment::query()->truncate();
-        \App\Models\EntityContent::truncate();
+        \App\Models\ContentNode::query()->truncate();
         \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
 
         // 1. Core Users
@@ -384,7 +380,7 @@ class SeedRealisticData extends Command
                 $entity = $modelClass::query()->create($attributes);
                 $allEntities->push($entity);
 
-                // --- NEW: MongoDB Digital Content Seeding (Comprehensive) ---
+                // --- Digital Content Nodes Seeding (Comprehensive PostgreSQL) ---
                 $contentService = app(\App\Services\EntityContentService::class);
                 if ($type === 'book') {
                     // Level 1: Sub-book (الكتاب الفرعي)

@@ -2,34 +2,38 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
-
 /**
- * @property string $_id
- * @property string $video_id
- * @property string $slug
- * @property string $type
- * @property string $title
- * @property int $order
- * @property array|null $content_blocks
- * @property array|null $metadata
- * @property float|null $start_time
- * @property float|null $end_time
- * @property string|null $content
- * @property-read \App\Models\Video $video
- * @mixin \Illuminate\Database\Eloquent\Builder
+ * Backwards compatibility adapter for VideoSegment -> ContentNode on PostgreSQL
  */
-class VideoSegment extends Model
+class VideoSegment extends ContentNode
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'video_segments';
+    protected static function booted()
+    {
+        parent::booted();
 
-    protected $primaryKey = '_id';
-    protected $keyType = 'string';
-    protected $guarded = [];
+        static::creating(function ($model) {
+            if (empty($model->type)) {
+                $model->type = 'segment';
+            }
+            if (empty($model->entity_type)) {
+                $model->entity_type = 'video';
+            }
+        });
+    }
+
+    public function getVideoIdAttribute(): ?string
+    {
+        return $this->entity_id;
+    }
+
+    public function setVideoIdAttribute($value): void
+    {
+        $this->attributes['entity_id'] = $value;
+        $this->attributes['entity_type'] = 'video';
+    }
 
     public function video()
     {
-        return $this->belongsTo(Video::class, 'video_id', 'id');
+        return $this->belongsTo(Video::class, 'entity_id');
     }
 }

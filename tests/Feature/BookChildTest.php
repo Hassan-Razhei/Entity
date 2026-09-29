@@ -3,28 +3,30 @@
 namespace Tests\Feature;
 
 use App\Models\Book;
-use App\Models\BookChild;
+use App\Models\ContentNode;
+use App\Services\BookContentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
 
 class BookChildTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
-    public function it_can_create_a_book_child_in_mongodb()
+    #[Test]
+    public function it_can_create_a_book_child_node_in_postgresql(): void
     {
-        // 1. Create a Book in MySQL (Metadata)
+        // 1. Create a Book in PostgreSQL
         $book = Book::factory()->create([
-            'title' => 'Test Book for Mongo'
+            'title' => 'Test Book for ContentNode'
         ]);
 
-        // 2. Create Content in MongoDB
-        $content = BookChild::create([
-            'book_id' => $book->id,
-            'language' => 'ar',
-            'content_blocks' => [
+        // 2. Create ContentNode in PostgreSQL
+        $content = $book->nodes()->create([
+            'type' => 'chapter',
+            'title' => 'Chapter 1: The Beginning',
+            'order' => 1,
+            'content_json' => [
                 [
                     'type' => 'heading',
                     'attrs' => ['level' => 1],
@@ -35,7 +37,7 @@ class BookChildTest extends TestCase
                 [
                     'type' => 'paragraph',
                     'content' => [
-                        ['type' => 'text', 'text' => 'Hello from MongoDB!']
+                        ['type' => 'text', 'text' => 'Hello from PostgreSQL!']
                     ]
                 ]
             ]
@@ -43,36 +45,40 @@ class BookChildTest extends TestCase
 
         // 3. Assertions
         $this->assertNotNull($content->id);
-        $this->assertEquals($book->id, $content->book_id);
+        $this->assertEquals($book->id, $content->entity_id);
+        $this->assertEquals('book', $content->entity_type);
 
-        // Find it back from MongoDB
-        $retrieved = BookChild::find($content->id);
-        $this->assertEquals('Chapter 1: The Beginning', $retrieved->content_blocks[0]['content'][0]['text']);
-        $this->assertEquals('Hello from MongoDB!', $retrieved->content_blocks[1]['content'][0]['text']);
+        // Find it back from PostgreSQL
+        $retrieved = ContentNode::find($content->id);
+        $this->assertEquals('Chapter 1: The Beginning', $retrieved->content_json[0]['content'][0]['text']);
+        $this->assertEquals('Hello from PostgreSQL!', $retrieved->content_json[1]['content'][0]['text']);
     }
 
-    /** @test */
-    public function it_can_update_nested_mongodb_content()
-    {
-        $content = BookChild::create([
-            'book_id' => 'some-id',
-            'content_blocks' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Old Title']]]]
-        ]);
-
-        $content->update([
-            'content_blocks' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'New Title']]]]
-        ]);
-
-        $this->assertEquals('New Title', BookChild::find($content->id)->content_blocks[0]['content'][0]['text']);
-    }
-
-    /** @test */
-    public function a_book_can_access_its_mongodb_children()
+    #[Test]
+    public function it_can_update_nested_content_blocks(): void
     {
         $book = Book::factory()->create();
 
-        BookChild::create([
-            'book_id' => $book->id,
+        $content = $book->nodes()->create([
+            'type' => 'chapter',
+            'title' => 'Chapter Test',
+            'content_json' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'Old Title']]]]
+        ]);
+
+        $content->update([
+            'content_json' => [['type' => 'paragraph', 'content' => [['type' => 'text', 'text' => 'New Title']]]]
+        ]);
+
+        $this->assertEquals('New Title', ContentNode::find($content->id)->content_json[0]['content'][0]['text']);
+    }
+
+    #[Test]
+    public function a_book_can_access_its_children_nodes(): void
+    {
+        $book = Book::factory()->create();
+
+        $book->nodes()->create([
+            'type' => 'chapter',
             'title' => 'Chapter 1'
         ]);
 
@@ -80,10 +86,10 @@ class BookChildTest extends TestCase
         $this->assertEquals('Chapter 1', $book->children->first()->title);
     }
 
-    /** @test */
-    public function book_content_service_can_manage_hierarchy()
+    #[Test]
+    public function book_content_service_can_manage_hierarchy(): void
     {
-        $service = new \App\Services\BookContentService();
+        $service = new BookContentService();
         $book = Book::factory()->create();
 
         // Add a Part
@@ -105,14 +111,18 @@ class BookChildTest extends TestCase
 
         $this->assertCount(2, $hierarchy);
         $this->assertEquals('chapter', $hierarchy->where('title', 'Chapter One')->first()->type);
-        $this->assertEquals((string) $part->id, (string) $hierarchy->where('title', 'Chapter One')->first()->parent_id);
+        $this->assertEquals($part->id, $hierarchy->where('title', 'Chapter One')->first()->parent_id);
     }
 
-    /** @test */
-    public function it_can_add_annotated_blocks_via_service()
+    #[Test]
+    public function it_can_add_annotated_blocks_via_service(): void
     {
-        $service = new \App\Services\BookContentService();
-        $child = BookChild::create(['book_id' => '123', 'title' => 'Masala 1']);
+        $service = new BookContentService();
+        $book = Book::factory()->create();
+        $child = $book->nodes()->create([
+            'type' => 'masalah',
+            'title' => 'Masala 1'
+        ]);
 
         $service->addBlock($child, [
             'type' => 'paragraph',
@@ -130,31 +140,81 @@ class BookChildTest extends TestCase
             ]
         ]);
 
-        $updatedChild = BookChild::find($child->id);
-        $this->assertCount(1, $updatedChild->content_blocks);
-        // Check text
-        $this->assertEquals('Main text content', $updatedChild->content_blocks[0]['content'][0]['text']);
-        // Check annotation/mark
-        $this->assertEquals('scholarlyFootnote', $updatedChild->content_blocks[0]['content'][0]['marks'][0]['type']);
-        $this->assertEquals('Footnote 1', $updatedChild->content_blocks[0]['content'][0]['marks'][0]['attrs']['content']);
+        $updatedChild = ContentNode::find($child->id);
+        $this->assertCount(1, $updatedChild->content_json);
+        $this->assertEquals('Main text content', $updatedChild->content_json[0]['content'][0]['text']);
+        $this->assertEquals('scholarlyFootnote', $updatedChild->content_json[0]['content'][0]['marks'][0]['type']);
+        $this->assertEquals('Footnote 1', $updatedChild->content_json[0]['content'][0]['marks'][0]['attrs']['content']);
     }
 
-    /** @test */
-    public function deleting_a_book_deletes_its_mongodb_children()
+    #[Test]
+    public function deleting_a_book_deletes_its_content_nodes(): void
     {
         $book = Book::factory()->create();
 
-        BookChild::create([
-            'book_id' => $book->id,
+        $node = $book->nodes()->create([
+            'type' => 'chapter',
             'title' => 'Chapter to be deleted'
         ]);
 
-        $this->assertCount(1, BookChild::where('book_id', $book->id)->get());
+        $this->assertDatabaseHas('content_nodes', ['id' => $node->id, 'deleted_at' => null]);
 
-        // Delete the MySQL book
+        // Soft delete book -> nodes are soft deleted
         $book->delete();
+        $this->assertSoftDeleted('content_nodes', ['id' => $node->id]);
 
-        // Check if MongoDB children are gone
-        $this->assertCount(0, BookChild::where('book_id', $book->id)->get());
+        // Force delete book -> nodes are completely removed
+        $book->forceDelete();
+        $this->assertDatabaseMissing('content_nodes', ['id' => $node->id]);
+    }
+
+    #[Test]
+    public function legacy_model_adapters_can_create_and_query_by_parent_foreign_key(): void
+    {
+        $book = Book::factory()->create();
+        $bookChild = \App\Models\BookChild::create([
+            'book_id' => $book->id,
+            'title' => 'Adapter Chapter',
+            'slug' => 'adapter-chapter-' . uniqid(),
+            'order' => 1,
+            'content_blocks' => [['type' => 'paragraph', 'text' => 'Hello']],
+        ]);
+
+        $this->assertEquals($book->id, $bookChild->book_id);
+        $this->assertEquals('book', $bookChild->entity_type);
+        $this->assertEquals($book->id, $bookChild->book->id);
+
+        $audio = \App\Models\Audio::create([
+            'title' => 'Adapter Audio',
+            'slug' => 'adapter-audio-' . uniqid(),
+        ]);
+        $segment = \App\Models\AudioSegment::create([
+            'audio_id' => $audio->id,
+            'title' => 'Adapter Audio Segment',
+            'slug' => 'adapter-audio-seg-' . uniqid(),
+            'order' => 1,
+            'start_time' => 10.5,
+            'end_time' => 20.5,
+        ]);
+        $this->assertEquals($audio->id, $segment->audio_id);
+        $this->assertEquals('audio', $segment->entity_type);
+        $this->assertEquals(10.5, $segment->start_time);
+        $this->assertEquals($audio->id, $segment->audio->id);
+
+        $video = \App\Models\Video::create([
+            'title' => 'Adapter Video',
+            'slug' => 'adapter-video-' . uniqid(),
+        ]);
+        $vSegment = \App\Models\VideoSegment::create([
+            'video_id' => $video->id,
+            'title' => 'Adapter Video Segment',
+            'slug' => 'adapter-video-seg-' . uniqid(),
+            'order' => 1,
+            'description' => 'A test scene',
+        ]);
+        $this->assertEquals($video->id, $vSegment->video_id);
+        $this->assertEquals('video', $vSegment->entity_type);
+        $this->assertEquals('A test scene', $vSegment->description);
+        $this->assertEquals($video->id, $vSegment->video->id);
     }
 }

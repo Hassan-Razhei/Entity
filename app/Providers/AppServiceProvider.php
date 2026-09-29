@@ -96,6 +96,7 @@ class AppServiceProvider extends ServiceProvider
             'shelf' => \App\Models\Shelf::class,
             'version' => \App\Models\Version::class,
             'content_node' => \App\Models\ContentNode::class,
+            'book_child' => \App\Models\BookChild::class,
         ]);
     }
 

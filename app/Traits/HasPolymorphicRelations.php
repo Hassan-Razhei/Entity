@@ -279,11 +279,10 @@ trait HasPolymorphicRelations
     }
 
     /**
-     * العلاقة الموحدة مع المحتوى في MongoDB (Unified Content)
+     * العلاقة الموحدة مع عقد المحتوى في PostgreSQL (Unified Content)
      */
     public function contents()
     {
-        return $this->hasMany(\App\Models\EntityContent::class, 'entity_id', 'id')
-            ->where('entity_type', strtolower(class_basename($this)));
+        return $this->nodes();
     }
 }

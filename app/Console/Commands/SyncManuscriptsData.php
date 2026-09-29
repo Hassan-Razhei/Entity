@@ -384,7 +384,7 @@ class SyncManuscriptsData extends Command
                 'order' => $startOrder + $index
             ]);
         }
-        $this->info("   + Synced " . count($pages) . " pages to MongoDB.");
+        $this->info("   + Synced " . count($pages) . " pages to PostgreSQL.");
     }
 
    protected function generateJsonContent($title, $rawContent, $nodeId)

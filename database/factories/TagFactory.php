@@ -17,10 +17,10 @@ class TagFactory extends Factory
      */
     public function definition(): array
     {
-        $name = $this->faker->unique()->realText(10);
+        $name = $this->faker->unique()->words(2, true);
         return [
-            'name' => $name,
-            'slug' => Str::slug($name, '-', null),
+            'name' => ucfirst($name),
+            'slug' => Str::slug($name) . '-' . $this->faker->unique()->numberBetween(1, 999999),
             'type' => $this->faker->optional()->word(),
             'created_at' => now(),
             'updated_at' => now(),

@@ -198,9 +198,7 @@ class SyncStorage extends Command
                     }
 
                     // Create initial version
-                    \App\Models\Version::create([
-                        'versionable_id' => $media->id,
-                        'versionable_type' => $media->type,
+                    $media->versions()->create([
                         'file_path' => $relativePath,
                         'edition_number' => 1,
                         'title' => 'Original',
@@ -239,14 +237,13 @@ class SyncStorage extends Command
              
              // Setup pages
              foreach ($pages as $index => $pageData) {
-                  \App\Models\ManuscriptPage::firstOrCreate(
-                      ['image_url' => $pageData['relativePath']],
+                  $manuscript->nodes()->firstOrCreate(
+                      ['slug' => Str::slug($folderName . '-page-' . ($index + 1))],
                       [
-                          'manuscript_id' => $manuscript->id,
-                          'slug' => Str::slug($folderName . '-page-' . ($index + 1)),
                           'title' => 'Page ' . ($index + 1),
                           'order' => $index + 1,
-                          'type' => ContentNodeType::PAGE->value
+                          'type' => 'page',
+                          'metadata' => ['image_url' => $pageData['relativePath']]
                       ]
                   );
              }
@@ -267,7 +264,7 @@ class SyncStorage extends Command
         $contentService = app(\App\Services\EntityContentService::class);
         
         foreach ($structure as $index => $node) {
-            $existing = \App\Models\BookChild::where('book_id', $book->id)
+            $existing = $book->nodes()
                 ->where('title', $node['title'])
                 ->first();
                 

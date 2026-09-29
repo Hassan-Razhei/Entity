@@ -18,6 +18,10 @@ class EntityBaseRepository
      */
     public function find(string $id): ?Entity
     {
+        if (!\Illuminate\Support\Str::isUuid($id)) {
+            return null;
+        }
+
         // البحث في جميع أنواع الـ Entities
         $types = $this->getEntityClasses();
 
@@ -53,6 +57,10 @@ class EntityBaseRepository
      */
     public function findByType(string $type, string $id): ?Entity
     {
+        if (!\Illuminate\Support\Str::isUuid($id)) {
+            return null;
+        }
+
         $entityClass = $this->resolveEntityClass($type);
 
         return $entityClass::find($id);
@@ -63,6 +71,10 @@ class EntityBaseRepository
      */
     public function findWithRelations(string $id, array $relations = []): ?Entity
     {
+        if (!\Illuminate\Support\Str::isUuid($id)) {
+            return null;
+        }
+
         $types = $this->getEntityClasses();
 
         foreach ($types as $type) {

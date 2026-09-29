@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Book;
-use App\Models\BookChild;
+use App\Models\ContentNode;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -21,8 +21,7 @@ class BookExportTest extends TestCase
         parent::setUp();
         $this->user = User::factory()->create();
         $this->book = Book::factory()->create(['slug' => 'test-book']);
-        $this->child = BookChild::create([
-            'book_id' => $this->book->id,
+        $this->child = $this->book->nodes()->create([
             'title' => 'Test Chapter',
             'type' => 'chapter',
             'content_blocks' => [

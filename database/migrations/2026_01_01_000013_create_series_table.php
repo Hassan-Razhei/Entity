@@ -10,9 +10,10 @@ return new class extends Migration {
         Schema::create('series', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->bigInteger('serial_number')->autoIncrement()->unique();
-            $table->string('name');
-            $table->string('slug')->unique()->index();
+            $table->string('title');
+            $table->string('slug')->nullable()->index();
             $table->text('description')->nullable();
+            $table->integer('order_column')->default(0);
             $table->timestamps();
             $table->softDeletes();
         });

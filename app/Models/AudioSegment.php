@@ -2,34 +2,38 @@
 
 namespace App\Models;
 
-use MongoDB\Laravel\Eloquent\Model;
-
 /**
- * @property string $_id
- * @property string $audio_id
- * @property string $slug
- * @property string $type
- * @property string $title
- * @property int $order
- * @property array|null $content_blocks
- * @property array|null $metadata
- * @property float|null $start_time
- * @property float|null $end_time
- * @property string|null $content
- * @property-read \App\Models\Audio $audio
- * @mixin \Illuminate\Database\Eloquent\Builder
+ * Backwards compatibility adapter for AudioSegment -> ContentNode on PostgreSQL
  */
-class AudioSegment extends Model
+class AudioSegment extends ContentNode
 {
-    protected $connection = 'mongodb';
-    protected $collection = 'audio_segments';
+    protected static function booted()
+    {
+        parent::booted();
 
-    protected $primaryKey = '_id';
-    protected $keyType = 'string';
-    protected $guarded = [];
+        static::creating(function ($model) {
+            if (empty($model->type)) {
+                $model->type = 'segment';
+            }
+            if (empty($model->entity_type)) {
+                $model->entity_type = 'audio';
+            }
+        });
+    }
+
+    public function getAudioIdAttribute(): ?string
+    {
+        return $this->entity_id;
+    }
+
+    public function setAudioIdAttribute($value): void
+    {
+        $this->attributes['entity_id'] = $value;
+        $this->attributes['entity_type'] = 'audio';
+    }
 
     public function audio()
     {
-        return $this->belongsTo(Audio::class, 'audio_id', 'id');
+        return $this->belongsTo(Audio::class, 'entity_id');
     }
 }

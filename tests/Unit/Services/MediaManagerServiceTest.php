@@ -14,7 +14,7 @@ class MediaManagerServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function it_creates_media_with_initial_version_and_authors()
     {
         // 1. Arrange: Use Factories
@@ -49,7 +49,7 @@ class MediaManagerServiceTest extends TestCase
         $this->assertEquals($publisher->id, $version->publisher_id);
     }
 
-    /** @test */
+    #[Test]
     public function it_updates_media_and_relations()
     {
         // 1. Arrange: Create initial book with author

@@ -43,7 +43,7 @@ class MediaManagerService
 
             // 3. Create the Initial Version
             $versionData = $this->prepareVersionData($data, $entity);
-            Version::query()->create($versionData);
+            $entity->versions()->create($versionData);
 
             return $entity->fresh(['authors', 'versions']);
         });
@@ -72,7 +72,7 @@ class MediaManagerService
             if ($version) {
                 $version->update($versionData);
             } elseif (isset($data['file_path'])) {
-                Version::query()->create($versionData);
+                $entity->versions()->create($versionData);
             }
 
             return $entity->fresh(['authors', 'versions']);
@@ -128,7 +128,7 @@ class MediaManagerService
     {
         return [
             'versionable_id' => $entity->id,
-            'versionable_type' => $entity->type,
+            'versionable_type' => $entity->getMorphClass(),
             'file_path' => $data['file_path'] ?? null,
             'publisher_id' => $data['publisher_id'] ?? null,
             'isbn' => $data['isbn'] ?? null,

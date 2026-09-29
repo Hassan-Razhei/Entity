@@ -23,8 +23,8 @@ class BookContentSeeder extends Seeder
             ]
         );
 
-        // 2. Clear existing MongoDB content for this book
-        BookChild::where('book_id', $book->id)->delete();
+        // 2. Clear existing content for this book
+        $book->nodes()->delete();
 
         // 3. Hierarchy: Sub-book (العلم)
         $subBook = $service->addChild($book, [

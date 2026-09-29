@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Book;
-use App\Models\BookChild;
+use App\Models\ContentNode;
 use App\Services\BookContentService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,17 +22,14 @@ class BookContentController extends Controller
     /**
      * عارض الكتاب الرئيسي
      */
-    /**
-     * عارض الكتاب الرئيسي
-     */
     public function show(Book $book, $childId = null): Response
     {
         $initialContent = null;
         if ($childId) {
-            $child = BookChild::where('book_id', $book->id)->where('_id', $childId)->first();
+            $child = $book->nodes()->where('id', $childId)->first();
             if ($child) {
                 $initialContent = [
-                    'id' => $child->_id,
+                    'id' => $child->id,
                     'title' => $child->title,
                     'type' => $child->type,
                     'content_blocks' => $child->content_blocks ?? [],
@@ -44,7 +41,7 @@ class BookContentController extends Controller
         return Inertia::render('Books/Reader/Index', [
             'book' => $book->only(['id', 'title', 'slug', 'author']),
             'initialHierarchy' => $this->contentService->getHierarchy($book)->map(fn($item) => [
-                'id' => (string) $item->_id,
+                'id' => (string) $item->id,
                 'parent_id' => $item->parent_id ? (string) $item->parent_id : null,
                 'type' => $item->type,
                 'title' => $item->title,
@@ -58,7 +55,7 @@ class BookContentController extends Controller
     /**
      * جلب محتويات وحدة معينة (فصل، مسألة، إلخ)
      */
-    public function getChildContent(BookChild $child): JsonResponse
+    public function getChildContent(ContentNode $child): JsonResponse
     {
         return response()->json([
             'content_blocks' => $child->content_blocks ?? [],
@@ -70,7 +67,7 @@ class BookContentController extends Controller
 
     public function updateValidation(Request $request, $id): JsonResponse
     {
-        $child = BookChild::find($id);
+        $child = ContentNode::find($id);
         if (!$child) {
             return response()->json(['message' => 'Not Found'], 404);
         }
@@ -91,7 +88,7 @@ class BookContentController extends Controller
 
     public function restoreVersion(Request $request, $id, $version = null): JsonResponse
     {
-        $child = BookChild::find($id);
+        $child = ContentNode::find($id);
         if (!$child) {
             return response()->json(['message' => 'Not Found'], 404);
         }
@@ -100,7 +97,7 @@ class BookContentController extends Controller
         $versions = $child->versions ?? [];
 
         if (isset($versions[$versionIndex])) {
-            $child->content_blocks = $versions[$versionIndex]['content_blocks'];
+            $child->content_blocks = $versions[$versionIndex]['content_blocks'] ?? [];
             $child->save();
             return response()->json(['message' => 'Restored']);
         }

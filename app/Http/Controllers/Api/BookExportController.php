@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Book;
-use App\Models\BookChild;
+use App\Models\ContentNode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
 use PhpOffice\PhpWord\PhpWord;
@@ -18,14 +18,14 @@ class BookExportController extends Controller
      */
     public function exportBook(Book $book, string $format)
     {
-        $children = BookChild::where('book_id', $book->id)->orderBy('order')->get();
+        $children = $book->nodes()->orderBy('order')->get();
         return $this->handleExport($book->title, $children, $format);
     }
 
     /**
      * Export a single chapter/unit.
      */
-    public function exportChild(BookChild $child, string $format)
+    public function exportChild(ContentNode $child, string $format)
     {
         return $this->handleExport($child->title, collect([$child]), $format);
     }

@@ -3,9 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Book;
-use App\Models\BookChild;
+use App\Models\ContentNode;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class BookEditorControllerTest extends TestCase
@@ -21,19 +22,19 @@ class BookEditorControllerTest extends TestCase
         parent::setUp();
         $this->user = User::factory()->create();
         $this->book = Book::factory()->create();
-        $this->child = BookChild::create([
-            'book_id' => $this->book->id,
+        $this->child = $this->book->nodes()->create([
             'title' => 'Initial Chapter',
             'type' => 'chapter',
-            'content_blocks' => [['type' => 'paragraph', 'content' => 'Old content']]
+            'content_json' => [['type' => 'paragraph', 'content' => 'Old content']]
         ]);
     }
 
-    public function test_save_content_updates_data_and_sets_protection()
+    #[Test]
+    public function test_save_content_updates_data_and_sets_protection(): void
     {
         $newContent = [['type' => 'paragraph', 'content' => 'New modified content']];
 
-        $response = $this->actingAs($this->user, 'sanctum')
+        $response = $this->actingAs($this->user)
             ->postJson(route('api.book-children.save', $this->child->id), [
                 'content_blocks' => $newContent
             ]);
@@ -46,7 +47,8 @@ class BookEditorControllerTest extends TestCase
         $this->assertCount(1, $this->child->versions);
     }
 
-    public function test_restore_version_reverts_content()
+    #[Test]
+    public function test_restore_version_reverts_content(): void
     {
         // First, save something to create a version
         $this->child->createVersion('Snapshot 1');
@@ -56,7 +58,7 @@ class BookEditorControllerTest extends TestCase
             'content_blocks' => [['type' => 'paragraph', 'content' => 'Damaged content']]
         ]);
 
-        $response = $this->actingAs($this->user, 'sanctum')
+        $response = $this->actingAs($this->user)
             ->postJson(route('api.book-children.restore', [$this->child->id, 0]));
 
         $response->assertStatus(200);

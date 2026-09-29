@@ -5,9 +5,8 @@ namespace App\Console\Commands;
 use App\Enums\EntityType;
 use App\Enums\ContentNodeType;
 use App\Models\Audio;
-use App\Models\AudioSegment;
 use App\Models\Video;
-use App\Models\VideoSegment;
+use App\Models\ContentNode;
 use App\Services\EntityContentService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
@@ -298,7 +297,7 @@ class ImportTranscripts extends Command
 
             // Check for duplicate
             $exists = $media->children()
-                ->where('start_time', $seg['start'])
+                ->where('metadata->start_time', (float) $seg['start'])
                 ->exists();
             
             if ($exists) {
