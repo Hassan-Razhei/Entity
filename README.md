@@ -337,16 +337,16 @@ database/migrations/
 Create the PostgreSQL database and dedicated user:
 
 ```bash
-sudo -u postgres psql -c "CREATE USER entity_user WITH PASSWORD 'entity' CREATEDB;"
-sudo -u postgres psql -c "CREATE DATABASE entity_db OWNER entity_user;"
-sudo -u postgres psql -c "CREATE DATABASE entity_test_db OWNER entity_user;"
+sudo -u postgres psql -c "CREATE USER your_db_user WITH PASSWORD 'your_secure_password' CREATEDB;"
+sudo -u postgres psql -c "CREATE DATABASE your_db_name OWNER your_db_user;"
+sudo -u postgres psql -c "CREATE DATABASE your_test_db_name OWNER your_db_user;"
 ```
 
 ### 3. Application Setup
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Hassan-Razhei/Entity.git
+git clone <repository-url>
 cd Entity
 git checkout EntityPostgre
 
@@ -371,9 +371,9 @@ APP_URL=http://localhost:8000
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
-DB_DATABASE=entity_db
-DB_USERNAME=entity_user
-DB_PASSWORD=entity
+DB_DATABASE=your_db_name
+DB_USERNAME=your_db_user
+DB_PASSWORD=your_secure_password
 
 CACHE_STORE=database
 QUEUE_CONNECTION=database
@@ -402,7 +402,7 @@ php artisan serve
 
 Access the application in your browser:
 - **Web Interface:** `http://localhost:8000`
-- **Default Superadmin Account:** `admin@admin.com` / `password`
+- **Initial Credentials:** Configured via `database/seeders/DatabaseSeeder.php`
 
 ---
 
