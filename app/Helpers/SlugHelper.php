@@ -92,7 +92,8 @@ class SlugHelper
         
         // Find the latest record to get the next sequential number
         // We look for any code ending in a number to keep the sequence global for the model
-        $latest = $model::where($column, 'REGEXP', '-[0-9]+$')
+        $operator = \Illuminate\Support\Facades\DB::getDriverName() === 'pgsql' ? '~' : 'REGEXP';
+        $latest = $model::where($column, $operator, '-[0-9]+$')
             ->orderBy('created_at', 'desc')
             ->first();
 

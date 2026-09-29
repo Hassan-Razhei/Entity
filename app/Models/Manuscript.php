@@ -94,13 +94,6 @@ class Manuscript extends Entity
         return ((int) $this->manuscript_century) >= 19; // بعد القرن 19
     }
 
-    /**
-     * العلاقة مع صفحات المخطوطة في MongoDB
-     */
-    public function children()
-    {
-        return $this->hasMany(ManuscriptPage::class, 'manuscript_id', 'id');
-    }
 
     /**
      * العلاقة مع نسخ المخطوطة (Versions)

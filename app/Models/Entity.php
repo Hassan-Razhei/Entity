@@ -45,6 +45,30 @@ abstract class Entity extends Model
                 $entity->slug = \App\Helpers\SlugHelper::generate($entity->title) ?: Str::uuid()->toString();
             }
         });
+
+        static::deleting(function ($entity) {
+            if (method_exists($entity, 'isForceDeleting') && $entity->isForceDeleting()) {
+                $entity->nodes()->forceDelete();
+            } else {
+                $entity->nodes()->delete();
+            }
+        });
+    }
+
+    /**
+     * العلاقة الموحدة مع عقد المحتوى في PostgreSQL
+     */
+    public function nodes()
+    {
+        return $this->morphMany(ContentNode::class, 'entity')->orderBy('order');
+    }
+
+    /**
+     * الاسم المستعار للعلاقة لضمان التوافق الكامل مع الكود السابق
+     */
+    public function children()
+    {
+        return $this->nodes();
     }
 
     /**

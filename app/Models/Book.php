@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\HybridRelations;
 
 /**
  * @property string $id
@@ -20,7 +19,7 @@ use MongoDB\Laravel\Eloquent\HybridRelations;
  */
 class Book extends Entity
 {
-    use HasFactory, HybridRelations;
+    use HasFactory;
     protected $table = 'books';
 
     protected $fillable = [
@@ -41,16 +40,6 @@ class Book extends Entity
     public function getDisplayNameAttribute(): string
     {
         return "{$this->title} - {$this->author}";
-    }
-
-
-
-    /**
-     * العلاقة مع المحتوى في MongoDB (فصول، أجزاء، إلخ)
-     */
-    public function children()
-    {
-        return $this->hasMany(BookChild::class, 'book_id', 'id');
     }
 
     /**
