@@ -5,16 +5,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('books', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->bigInteger('serial_number')->autoIncrement()->unique();
             $table->string('title');
-            $table->string('slug')->unique();
-            $table->string('author')->nullable();
+            $table->string('slug')->unique()->index();
+            $table->string('author')->nullable()->index();
             $table->string('isbn')->unique()->nullable();
             $table->longText('description')->nullable();
             $table->string('cover_path')->nullable();
@@ -22,19 +20,10 @@ return new class extends Migration {
             $table->timestamps();
             $table->softDeletes();
 
-            // مؤشرات
-            $table->index('slug');
-            $table->index('author');
             $table->index('created_at');
         });
-
-        // إضافة الرقم التسلسلي باستخدام SQL مباشر لضمان التوافق مع MariaDB عند وجود UUID كـ Primary Key
-        DB::statement('ALTER TABLE books ADD serial_number BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE AFTER id');
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('books');

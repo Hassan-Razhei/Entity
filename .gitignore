@@ -25,3 +25,4 @@ Thumbs.db
 .mongo/
 architecture_analysis_*.md
 nohup.out
+database/migrations_legacy_backup/
