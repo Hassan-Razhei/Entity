@@ -161,13 +161,15 @@ const availableNodes = computed(() => {
         propNodes = props.entity.children.map(c => ({
             id: c._id || c.id,
             slug: c.slug,
-            title: c.title || `مقطع #${c.order || '?'}`
+            title: c.title || `مقطع #${c.order || '?'}`,
+            start: c.start_time !== undefined ? c.start_time : (c.start !== undefined ? c.start : (c.metadata?.start_time !== undefined ? c.metadata.start_time : undefined))
         }))
     } else if (props._legacy && props._legacy.hierarchy) {
         propNodes = props._legacy.hierarchy.map(c => ({
             id: c._id || c.id,
             slug: c.slug,
-            title: c.title || 'بدون عنوان'
+            title: c.title || 'بدون عنوان',
+            start: c.start_time !== undefined ? c.start_time : (c.start !== undefined ? c.start : (c.metadata?.start_time !== undefined ? c.metadata.start_time : undefined))
         }))
     }
 
@@ -190,6 +192,10 @@ const availableNodes = computed(() => {
             unified.push(pn);
         }
     });
+
+    if (props.type === 'audio' || props.type === 'video') {
+        unified.sort((a, b) => (Number(a.start) || 0) - (Number(b.start) || 0));
+    }
 
     if (!searchQuery.value) return unified;
 

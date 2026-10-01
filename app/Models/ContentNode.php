@@ -66,6 +66,7 @@ class ContentNode extends Model
         'manuscript_id',
         'audio_id',
         'video_id',
+        'duration',
     ];
 
     protected $casts = [
@@ -74,6 +75,8 @@ class ContentNode extends Model
         'metadata' => 'array',
         'versions' => 'array',
     ];
+
+    protected $appends = ['_id', 'start_time', 'end_time'];
 
     protected static function booted()
     {
@@ -164,14 +167,35 @@ class ContentNode extends Model
     /**
      * خاصية _id متوافقة مع الأنظمة السابقة
      */
-    public function get_IdAttribute(): string
+    public function getIdAttribute(): ?string
     {
-        return (string) $this->id;
+        return isset($this->attributes['id']) ? (string) $this->attributes['id'] : null;
+    }
+
+    public function get_IdAttribute(): ?string
+    {
+        return $this->id;
     }
 
     public function set_IdAttribute($value): void
     {
         $this->attributes['id'] = $value;
+    }
+
+    public function setAttribute($key, $value)
+    {
+        if ($key === '_id') {
+            $key = 'id';
+        }
+        return parent::setAttribute($key, $value);
+    }
+
+    public function getAttribute($key)
+    {
+        if ($key === '_id') {
+            return (string) parent::getAttribute('id');
+        }
+        return parent::getAttribute($key);
     }
 
     /**
@@ -269,6 +293,21 @@ class ContentNode extends Model
     {
         $meta = $this->metadata ?? [];
         $meta['end_time'] = (float) $value;
+        $this->metadata = $meta;
+    }
+
+    /**
+     * مدة المقطع بالثواني
+     */
+    public function getDurationAttribute(): ?float
+    {
+        return isset($this->metadata['duration']) ? (float) $this->metadata['duration'] : null;
+    }
+
+    public function setDurationAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['duration'] = (float) $value;
         $this->metadata = $meta;
     }
 

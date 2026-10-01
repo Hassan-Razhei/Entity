@@ -322,7 +322,7 @@ class UnifiedEditorController extends Controller
         }
 
         return response()->json([
-            'message' => 'تم حفظ جميع الأجزاء بنجاح (Full View Sync)',
+            'message' => 'تم الحفظ بنجاح',
             'updated_count' => count($fullHtmlDataMap),
             'last_saved' => now()->toIso8601String()
         ]);

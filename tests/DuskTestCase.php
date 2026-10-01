@@ -30,8 +30,10 @@ abstract class DuskTestCase extends BaseTestCase
     {
         parent::setUp();
 
-        // Disable foreign key checks to avoid migration issues
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // Disable foreign key checks to avoid migration issues (MySQL only)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
     }
 
     /**
@@ -39,8 +41,10 @@ abstract class DuskTestCase extends BaseTestCase
      */
     protected function tearDown(): void
     {
-        // Re-enable foreign key checks
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        // Re-enable foreign key checks (MySQL only)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        }
 
         parent::tearDown();
     }
