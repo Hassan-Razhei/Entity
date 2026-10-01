@@ -401,24 +401,25 @@ const handleAddClick = () => {
                     </div>
 
                     <!-- Display Mode -->
-                    <div v-else class="flex items-center min-w-0 gap-1.5 overflow-hidden" :class="[isArabic(seg.label || seg.title) ? 'flex-row-reverse ml-auto' : 'flex-row mr-auto']">
+                    <div v-else class="flex items-center justify-between min-w-0 gap-2 w-full" dir="rtl">
                         <!-- Label Part (Leads for the eye) -->
-                         <div class="min-w-0 max-w-[120px]">
+                         <div class="min-w-0 flex-1 text-right">
                             <span 
                                 class="text-[10px] truncate block transition-colors"
-                                :class="[isArabic(seg.label || seg.title) ? 'text-right' : 'text-left']"
                                 :style="seg.slug === activeSlug ? 'text-shadow: 0 0 12px rgba(163, 230, 53, 0.6)' : ''"
                                 @dblclick.stop="startEditing(seg)"
+                                :title="seg.label || seg.title"
                             >
-                                {{ seg.label || seg.title }}
+                                <bdi dir="auto">{{ seg.label || seg.title }}</bdi>
                             </span>
                          </div>
 
                          <!-- Time Part (Follows immediately) -->
                         <span 
                             class="text-[8px] shrink-0 font-mono" 
+                            dir="ltr"
                             :class="[
-                                seg.slug === activeSlug ? 'text-lime-400' : 'text-blue-400'
+                                seg.slug === activeSlug ? 'text-lime-400 font-bold' : 'text-blue-400'
                             ]"
                             :style="seg.slug === activeSlug ? 'text-shadow: 0 0 10px rgba(163, 230, 53, 0.5)' : ''"
                         >

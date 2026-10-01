@@ -149,7 +149,7 @@ class EntityContentService
             ->select(['id', 'title', 'slug', 'type', 'order', 'parent_id', 'metadata', 'content_html']);
 
         if (in_array(class_basename($entity), ['Audio', 'Video'])) {
-            $query->orderByRaw("(metadata->>'start_time')::float NULLS LAST")->orderBy('order', 'asc');
+            $query->reorder()->orderByRaw("(metadata->>'start_time')::float NULLS LAST")->orderBy('order', 'asc');
         } else {
             $query->orderBy('order', 'asc');
         }
@@ -261,7 +261,7 @@ class EntityContentService
         $query = $entity->nodes();
 
         if (in_array(class_basename($entity), ['Audio', 'Video'])) {
-            $query->orderByRaw("(metadata->>'start_time')::float NULLS LAST")->orderBy('order', 'asc');
+            $query->reorder()->orderByRaw("(metadata->>'start_time')::float NULLS LAST")->orderBy('order', 'asc');
         } else {
             $query->orderBy('order', 'asc');
         }
@@ -297,6 +297,7 @@ class EntityContentService
             return $fullTranscript;
         } else {
             $allNodes = $entity->nodes()
+                ->reorder()
                 ->orderByRaw("(metadata->>'start_time')::float NULLS LAST")
                 ->orderBy('order', 'asc')
                 ->get();

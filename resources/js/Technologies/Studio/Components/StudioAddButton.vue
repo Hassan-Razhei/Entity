@@ -49,11 +49,11 @@ const selectType = (type) => {
         const seconds = Math.floor(props.contextData.currentTime)
         nodeTimeSeconds.value = seconds
         formattedNodeTime.value = orchestrator.mediaStore.formatTime(seconds)
-        nodeTitle.value = `${type.label} at ${formattedNodeTime.value}`
+        nodeTitle.value = `${type.label} عند ${formattedNodeTime.value}`
     } else if (props.type === 'manuscript' && (type.id === 'folio' || type.id === 'page')) {
         nodeTitle.value = `${type.label} ${props.contextData.currentFolio + 1}`
     } else {
-        nodeTitle.value = `New ${type.label}`
+        nodeTitle.value = `${type.label} جديد`
     }
 }
 

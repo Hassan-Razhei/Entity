@@ -40,7 +40,7 @@ const toggleDock = inject('toggleDock', () => {});
 // 1. Get Segments (Tracks/Scenes) from Children
 const segments = computed(() => {
     if (props.media?.children?.length) {
-        return props.media.children.map(child => ({
+        const list = props.media.children.map(child => ({
             id: child.id || child._id,
             slug: child.slug,
             label: child.title, // Map 'title' to 'label' for DraggableMediaPlayer
@@ -51,6 +51,7 @@ const segments = computed(() => {
             end: child.end_time || (child.duration || 0),
             color: child.metadata?.color || '#3b82f6'
         }));
+        return list.sort((a, b) => (Number(a.start) || 0) - (Number(b.start) || 0));
     }
     return [];
 });

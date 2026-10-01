@@ -46,6 +46,7 @@ class SegmentController extends Controller
         $startTime = (float) ($request->start_time ?? 0);
 
         $existingSegments = $entity->nodes()
+            ->reorder()
             ->orderByRaw("(metadata->>'start_time')::float NULLS LAST")
             ->orderBy('order', 'asc')
             ->get();
@@ -121,6 +122,7 @@ class SegmentController extends Controller
             if (abs($newStartTime - $oldStartTime) > 0.1) {
                 $otherSegments = $entity->nodes()
                     ->where('id', '!=', $segment->id)
+                    ->reorder()
                     ->orderByRaw("(metadata->>'start_time')::float NULLS LAST")
                     ->orderBy('order', 'asc')
                     ->get();

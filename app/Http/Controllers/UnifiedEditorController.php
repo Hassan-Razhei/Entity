@@ -80,8 +80,12 @@ class UnifiedEditorController extends Controller
         // التحقق من الصلاحية
         Gate::authorize('update', $entity);
 
-        // Load children directly from PostgreSQL relation
-        $entity->load('children');
+        // Load children directly from PostgreSQL relation (chronologically sorted for media)
+        if (in_array($entityType, [EntityType::AUDIO, EntityType::VIDEO])) {
+            $entity->load(['children' => fn($q) => $q->reorder()->orderByRaw("(metadata->>'start_time')::float NULLS LAST")->orderBy('order', 'asc')]);
+        } else {
+            $entity->load('children');
+        }
 
         // Load siblings for Manuscript if 'code' exists
         if ($entityType === EntityType::MANUSCRIPT && $entity->code) {
@@ -226,7 +230,7 @@ class UnifiedEditorController extends Controller
 
         $query = $parent->nodes();
         if (in_array($type, [EntityType::AUDIO, EntityType::VIDEO])) {
-            $query->orderByRaw("(metadata->>'start_time')::float NULLS LAST")->orderBy('order', 'asc');
+            $query->reorder()->orderByRaw("(metadata->>'start_time')::float NULLS LAST")->orderBy('order', 'asc');
         } else {
             $query->orderBy('order', 'asc');
         }
