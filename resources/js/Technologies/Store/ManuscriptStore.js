@@ -8,6 +8,7 @@ export const useManuscriptStore = defineStore('manuscript', {
 
         // Navigation State
         shotNumber: 1,
+        versionShots: {},
         activeSlug: null,
 
         // View State
@@ -60,7 +61,16 @@ export const useManuscriptStore = defineStore('manuscript', {
         getPageUrl: (state) => (shotIndex, version) => {
             if (!version || !version.pages || version.pages.length === 0) return '';
             const page = version.pages[shotIndex - 1];
-            return page ? page.image_url : '';
+            const rawUrl = page?.image_url || page?.metadata?.image_url || version.manuscript?.file_path || version.manuscript?.cover_path || '';
+            if (!rawUrl) return '';
+            if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('/') || rawUrl.startsWith('blob:')) {
+                return rawUrl;
+            }
+            return '/storage/' + rawUrl;
+        },
+
+        getVersionShot: (state) => (versionId) => {
+            return state.versionShots[versionId] || state.shotNumber;
         }
     },
 
@@ -87,6 +97,17 @@ export const useManuscriptStore = defineStore('manuscript', {
         setShot(number) {
             if (number < 1 || number > this.totalPages) return;
             this.shotNumber = number;
+            // Sync all version shots to global shot number
+            this.versionShots = {};
+        },
+
+        setVersionShot(versionId, number) {
+            const version = this.allVersions.find(v => v.id === versionId);
+            const maxPages = version?.pages?.length || this.totalPages;
+            const parsed = parseInt(number, 10);
+            if (!isNaN(parsed) && parsed >= 1 && parsed <= maxPages) {
+                this.versionShots[versionId] = parsed;
+            }
         },
 
         // Toggle Version (Compare Mode Logic)
@@ -123,6 +144,12 @@ export const useManuscriptStore = defineStore('manuscript', {
                 const toKeep = this.selectedVersionIds[0] || this.manuscript?.id;
                 this.selectedVersionIds = [toKeep];
             } else {
+                // Automatically select first 2 versions if only 1 was selected
+                if (this.selectedVersionIds.length <= 1 && this.allVersions.length > 1) {
+                    this.selectedVersionIds = this.allVersions.slice(0, 2).map(v => v.id);
+                }
+                // Automatically switch viewMode to 'list' so CompareView is immediately displayed
+                this.viewMode = 'list';
                 this.distributeWidths();
             }
         }

@@ -39,7 +39,7 @@ class StoreManuscriptRequest extends FormRequest
             'author_ids' => 'nullable|array',
             'author_ids.*' => 'exists:authors,id',
             'publisher_id' => 'nullable|exists:publishers,id',
-            'published_year' => 'nullable|integer|min:1000|max:' . (date('Y') + 1),
+            'published_year' => 'nullable|integer|min:1|max:' . (date('Y') + 1),
             'description' => 'nullable|string',
             'cover' => 'nullable|image|max:2048',
             'file' => 'nullable|mimes:pdf|max:51200', // 50MB

@@ -276,12 +276,12 @@ const contextData = computed(() => {
     let currentFolio = 0;
     if (props.type === 'manuscript') {
         const folios = availableNodes.value
-            .filter(n => n.title && (n.title.includes('ورقة') || n.title.includes('لوحة')))
+            .filter(n => n.title && (n.title.includes('ورقة') || n.title.includes('لوحة') || n.title.includes('صفحة')))
             .map(n => {
                 const match = n.title.match(/\d+/);
                 return match ? parseInt(match[0]) : 0;
             });
-        currentFolio = folios.length > 0 ? Math.max(...folios) : 0;
+        currentFolio = folios.length > 0 ? Math.max(...folios) : availableNodes.value.length;
     }
 
     // 3. Last Marker
@@ -501,15 +501,21 @@ const handleInsertNode = ({ type, title, time }) => {
       <!-- Scenario A: Manuscript (Split View) -->
       <SplitPane v-if="props.type === 'manuscript'" :initial-split="40" :min-size="20">
         <template #pane-1>
-          <EditorPane :initial-content="props.editorContent" />
+          <EditorPane 
+            :initial-content="props.editorContent" 
+            :type="props.type"
+            @navigate="navigateToChild"
+            @navigate-full="navigateToFull"
+            @add-node="handleInsertNode"
+          />
         </template>
         <template #pane-2>
           <ReferencePane
             :type="props.type"
             :entity="props.entity" 
             :active-child-id="props.activeChildId"
-            @navigate="(id) => router.visit(route('studio.show', { type: props.type, slug: props.entity.slug, childId: id }))"
-            @navigate-full="() => router.visit(route('studio.show', { type: props.type, slug: props.entity.slug }))"
+            @navigate="navigateToChild"
+            @navigate-full="navigateToFull"
             @add-node="handleInsertNode"
           />
         </template>

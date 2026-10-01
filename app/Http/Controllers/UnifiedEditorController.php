@@ -89,16 +89,21 @@ class UnifiedEditorController extends Controller
 
         // Load siblings for Manuscript if 'code' exists
         if ($entityType === EntityType::MANUSCRIPT && $entity->code) {
-            $parts = explode('-', $entity->code);
-            array_pop($parts);
-            $workPrefix = implode('-', $parts);
+            $siblingsQuery = Manuscript::where('id', '!=', $entity->id)
+                ->where(function ($q) use ($entity) {
+                    $q->where('code', $entity->code);
+                    if (str_contains($entity->code, '-')) {
+                        $parts = explode('-', $entity->code);
+                        array_pop($parts);
+                        $workPrefix = implode('-', $parts);
+                        if (!empty($workPrefix)) {
+                            $q->orWhere('code', 'LIKE', $workPrefix . '-%');
+                        }
+                    }
+                })
+                ->with(['children' => fn($q) => $q->orderBy('order')]);
 
-            $siblings = Manuscript::where('code', 'LIKE', $workPrefix . '-%')
-                ->where('id', '!=', $entity->id)
-                ->with('children')
-                ->get();
-
-            $entity->setRelation('siblings', $siblings);
+            $entity->setRelation('siblings', $siblingsQuery->get());
         }
 
         // Record last active session
@@ -250,7 +255,7 @@ class UnifiedEditorController extends Controller
             }
         }
 
-        $markerRegex = '/<h4[^>]*class="[^"]*structure-marker[^"]*"[^>]*>.*?<\/h4>/siu';
+        $markerRegex = '/<h[1-6][^>]*class="[^"]*structure-marker[^"]*"[^>]*>.*?<\/h[1-6]>/siu';
         preg_match_all($markerRegex, $html, $matches, PREG_OFFSET_CAPTURE);
         
         $htmlDataMap = [];
@@ -263,7 +268,7 @@ class UnifiedEditorController extends Controller
             $headerEnd = $headerStart + strlen($headerHtml);
             
             preg_match('/data-id="(?P<id>[^"]+)"/i', $headerHtml, $idMatch);
-            preg_match('/<h4[^>]*>(?P<title>.*?)<\/h4>/siu', $headerHtml, $titleMatch);
+            preg_match('/<h[1-6][^>]*>(?P<title>.*?)<\/h[1-6]>/siu', $headerHtml, $titleMatch);
             
             $id = $idMatch['id'] ?? null;
             $title = $titleMatch['title'] ?? null;

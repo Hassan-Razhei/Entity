@@ -69,17 +69,24 @@ onUnmounted(() => {
                 :class="{'border-l': idx > 0}"
                 :style="{ width: store.panelWidths[idx] + '%' }"
             >
+                <!-- Top Version Info Badge -->
+                <div class="absolute top-14 right-4 z-10 bg-black/70 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-white flex items-center gap-2 pointer-events-none shadow-md">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <span class="text-xs font-bold">{{ version.name }}</span>
+                    <span class="text-[10px] text-white/50 font-mono">لوحة {{ store.getVersionShot(version.id) }}</span>
+                </div>
+
                 <!-- Image -->
                 <div class="w-full h-full flex items-center justify-center p-4">
                     <img
-                        :src="store.getPageUrl(store.shotNumber, version)" 
+                        :src="store.getPageUrl(store.getVersionShot(version.id), version)" 
                         class="max-h-full max-w-full object-contain shadow-2xl opacity-90 transition-opacity hover:opacity-100"
                     >
                 </div>
                 
                 <!-- Minimal Filename Overlay -->
                 <div class="absolute bottom-4 right-4 bg-black/40 backdrop-blur px-2 py-1 rounded text-white/50 text-[10px] font-mono pointer-events-none">
-                    {{ parseFilename(store.getPageUrl(store.shotNumber, version)) }}
+                    {{ parseFilename(store.getPageUrl(store.getVersionShot(version.id), version)) }}
                 </div>
             </div>
 

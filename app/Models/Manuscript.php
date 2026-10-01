@@ -68,7 +68,7 @@ class Manuscript extends Entity
             return "قبل هجرة";
         }
 
-        $hijriCentury = $century - 600; // تقدير تقريبي
+        $hijriCentury = max(1, (int) round((($century * 100) - 622) / 97));
         return "القرن {$century} الميلادي (القرن {$hijriCentury} الهجري تقريباً)";
     }
 

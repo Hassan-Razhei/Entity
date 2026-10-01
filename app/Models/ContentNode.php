@@ -76,7 +76,7 @@ class ContentNode extends Model
         'versions' => 'array',
     ];
 
-    protected $appends = ['_id', 'start_time', 'end_time'];
+    protected $appends = ['_id', 'start_time', 'end_time', 'image_url', 'folio_number'];
 
     protected static function booted()
     {

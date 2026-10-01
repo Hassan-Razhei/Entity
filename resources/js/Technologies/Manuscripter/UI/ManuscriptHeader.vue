@@ -15,7 +15,7 @@ const toggleVersion = (id) => {
             <!-- Work Title & Code -->
             <div class="flex flex-col text-white/90 mr-2">
                 <span class="text-[14px] font-bold truncate max-w-[200px]">{{ store.manuscript?.title }}</span>
-                <span class="text-[9px] text-white/40 font-mono tracking-widest uppercase">{{ store.manuscript?.code?.split('-').slice(0, -1).join('-') }}</span>
+                <span class="text-[9px] text-white/40 font-mono tracking-widest uppercase">{{ (store.manuscript?.code?.includes('-') ? store.manuscript.code.split('-').slice(0, -1).join('-') : store.manuscript?.code) }}</span>
             </div>
 
             <div class="w-px h-6 bg-white/10 mx-2" />
@@ -41,10 +41,11 @@ const toggleVersion = (id) => {
 
                     <input 
                         v-if="store.selectedVersionIds.includes(version.id)"
-                        v-model="store.shotNumber" 
+                        :value="store.getVersionShot(version.id)" 
                         type="number"
                         class="w-10 bg-black/20 border-none rounded px-1 py-0.5 text-[10px] font-mono text-white text-center focus:ring-1 focus:ring-white/30 outline-none"
                         placeholder="#"
+                        @input="store.setVersionShot(version.id, $event.target.value)"
                         @click.stop
                     >
                 </div>

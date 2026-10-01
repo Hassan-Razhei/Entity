@@ -20,11 +20,15 @@ const scrollStart = ref({ left: 0, top: 0 })
 // Versions Logic
 const versions = computed(() => {
     // 1. Priority: Current Page Image
-    if (props.currentNode?.image_url) {
+    const rawUrl = props.currentNode?.image_url || props.currentNode?.metadata?.image_url || props.resource?.file_path || props.resource?.cover_path
+    if (rawUrl) {
+        const formattedUrl = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('/') || rawUrl.startsWith('blob:'))
+            ? rawUrl 
+            : '/storage/' + rawUrl
         return [{
             id: 'node-view',
-            title: props.currentNode.title || 'المعاينة الحالية',
-            url: props.currentNode.image_url
+            title: props.currentNode?.title || 'المعاينة الحالية',
+            url: formattedUrl
         }]
     }
     // 2. Fallback: Saved Versions
