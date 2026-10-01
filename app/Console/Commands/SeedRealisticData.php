@@ -35,7 +35,10 @@ class SeedRealisticData extends Command
      *
      * @var string
      */
-    protected $signature = 'project:seed-realistic {--count=10 : The number of entities to create for each type}';
+    protected $signature = 'project:seed-realistic
+                            {--count=10 : The number of entities to create for each type}
+                            {--force : تجاوز الحماية (مطلوب في بيئة الإنتاج)}
+                            {--token= : مفتاح التأكيد السري (مطلوب مع --force في الإنتاج)}';
 
     /**
      * The console command description.
@@ -49,6 +52,37 @@ class SeedRealisticData extends Command
      */
     public function handle()
     {
+        // ─── حماية بيئة الإنتاج ───────────────────────────────────────────
+        if (app()->environment('production')) {
+            if (!$this->option('force')) {
+                $this->error('⛔  هذا الأمر محظور في بيئة الإنتاج.');
+                $this->line('    استخدم --force مع --token=<المفتاح_السري> إذا كنت مُخوَّلاً.');
+                return Command::FAILURE;
+            }
+
+            // التحقق من المفتاح السري
+            $requiredToken = config('app.seed_secret', env('SEED_SECRET'));
+            $providedToken = $this->option('token');
+
+            if (empty($requiredToken)) {
+                $this->error('⛔  SEED_SECRET غير محدد في ملف .env — لا يمكن تفعيل --force.');
+                return Command::FAILURE;
+            }
+
+            if (!hash_equals((string) $requiredToken, (string) $providedToken)) {
+                $this->error('⛔  المفتاح السري غير صحيح.');
+                return Command::FAILURE;
+            }
+
+            $this->warn('⚠️  أنت على وشك حذف جميع بيانات الإنتاج وإعادة التعبئة!');
+        }
+        // ─── تأكيد المستخدم (في كل البيئات) ─────────────────────────────
+        if (!$this->confirm('⚠️  سيتم حذف جميع البيانات الحالية وإعادة تعبئتها. هل أنت متأكد؟', false)) {
+            $this->info('تم الإلغاء.');
+            return Command::SUCCESS;
+        }
+        // ──────────────────────────────────────────────────────────────────
+
         $count = (int) $this->option('count');
         $this->info("Starting exhaustive realistic data seeding (Count: {$count} for each type)...");
 
