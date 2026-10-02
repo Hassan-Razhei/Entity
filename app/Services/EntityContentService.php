@@ -97,9 +97,15 @@ class EntityContentService
             $metadata['image_url'] = $data['image_url'];
             unset($data['image_url']);
         }
+        // page_number: كان حقلاً مباشراً في MongoDB، يُخزَّن الآن في metadata JSONB
+        if (isset($data['page_number'])) {
+            $metadata['page_number'] = (int) $data['page_number'];
+            unset($data['page_number']);
+        }
         if (!empty($metadata)) {
             $data['metadata'] = $metadata;
         }
+
 
         // التعامل مع محتوى النص (HTML & Plain Text)
         if (isset($data['content']) && !isset($data['content_html'])) {

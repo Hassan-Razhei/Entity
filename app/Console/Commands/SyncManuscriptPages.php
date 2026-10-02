@@ -234,8 +234,9 @@ class SyncManuscriptPages extends Command
 
         foreach ($pages as $index => $page) {
             // Check for duplicate
+            // page_number مخزّنة في metadata JSONB (PostgreSQL) وليس عمود مباشر
             $exists = $manuscript->children()
-                ->where('page_number', $page['number'])
+                ->whereRaw("(metadata->>'page_number')::int = ?", [$page['number']])
                 ->exists();
             
             if ($exists) {
@@ -265,9 +266,13 @@ class SyncManuscriptPages extends Command
             // Construct Constitutional HTML
             $nodeId = $node->id;
             $title = "صفحة {$page['number']}";
-            
+
             $headerHtml = "<h4 class=\"structure-marker\" data-segment-link=\"true\" data-id=\"{$nodeId}\" data-type=\"{$nodeType}\">{$title}</h4>";
-            $contentHtml = "<p>" . trim($page['content']) . "</p>";
+
+            // كل سطر في فقرة منفصلة (كما كان في MongoDB حيث كل فقرة document منفصل)
+            $paragraphs  = array_filter(array_map('trim', explode("\n", $page['content'])));
+            $contentHtml = implode('', array_map(fn($line) => "<p>{$line}</p>", $paragraphs));
+            if (empty($contentHtml)) $contentHtml = '<p></p>';
             
             $fullHtml = $headerHtml . $contentHtml;
             $jsonContent = $this->generateJsonContent($title, $page['content'], $nodeId, $nodeType);

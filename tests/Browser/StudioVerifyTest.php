@@ -12,8 +12,13 @@ class StudioVerifyTest extends DuskTestCase
     public function test_verify_studio_in_real_browser()
     {
         $this->browse(function (Browser $browser) {
-            $user = User::first();
-            $audio = Audio::where('slug', 'شرح-ألفية-ابن-مالك-10')->first();
+            $user  = User::first();
+            // استخدام أي audio موجود بدلاً من slug ثابت قد يتغير بعد كل seed
+            $audio = Audio::whereHas('nodes')->first() ?? Audio::first();
+
+            if (!$user || !$audio) {
+                $this->markTestSkipped('لا توجد بيانات كافية — شغّل: php artisan project:seed-realistic');
+            }
 
             $browser->loginAs($user)
                 ->visit(route('studio.show', ['type' => 'audio', 'slug' => $audio->slug]))

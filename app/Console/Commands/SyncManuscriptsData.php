@@ -72,9 +72,12 @@ class SyncManuscriptsData extends Command
             try {
                 $manuscript = $this->processRow($row, $index, $isDryRun);
                 if ($manuscript && isset($manuscript->id)) {
+                    $stats['imported']++;
                     $lastManuscriptId = $manuscript->id;
+                } else {
+                    // processRow أرجعت null = صف متجاهل (missing title أو dry-run)
+                    $stats['skipped']++;
                 }
-                $stats['imported']++;
             } catch (\Exception $e) {
                 $this->error("Error at row $index: " . $e->getMessage());
                 $stats['errors']++;
@@ -193,23 +196,30 @@ class SyncManuscriptsData extends Command
         }
 
         // 5. Create/Update Manuscript
+        // catalog_number: مفتاح البحث الأساسي
+        // إذا كان null نستخدم العنوان + المؤلف بدلاً منه لتجنب تلويث
+        // أول مخطوط بدون رقم فهرسة (كان يحدث في MongoDB بشكل صامت)
+        if ($catalogNumber) {
+            $searchKey = ['catalog_number' => $catalogNumber];
+        } else {
+            $searchKey = ['title' => $title, 'original_title' => $title];
+        }
+
         $manuscript = Manuscript::updateOrCreate(
-            ['catalog_number' => $catalogNumber], // Identity Check (or use Title + Author if no Catalog No)
+            $searchKey,
             [
-                'title' => $title,
-                'original_title' => $title,
-                'copy_date' => $copyDate,
-                'scribe' => $scribe,
-                'parts' => $parts,
-                'manuscript_century' => $centuryData['century'],
+                'title'                    => $title,
+                'original_title'           => $title,
+                'catalog_number'           => $catalogNumber,
+                'copy_date'                => $copyDate,
+                'scribe'                   => $scribe,
+                'parts'                    => $parts,
+                'manuscript_century'       => $centuryData['century'],
                 'manuscript_century_label' => $centuryData['label'],
-                'is_autograph' => $isAutograph,
-                'description' => $description, // Store raw text for search? Or just Tiptap?
-                // We should store Tiptap JSON in 'json_content' field if exists, or use a mutator.
-                // Assuming 'description' is text column, but we want Tiptap for editor.
-                // The Manuscript model likely has 'description' as text.
-                'notes' => $notes,
-                'inscriptions' => $inscriptions,
+                'is_autograph'             => $isAutograph,
+                'description'              => $description,
+                'notes'                    => $notes,
+                'inscriptions'             => $inscriptions,
             ]
         );
 
@@ -359,31 +369,53 @@ class SyncManuscriptsData extends Command
 
     protected function syncManuscriptPages($manuscript, $pages)
     {
-        $contentService = app(\App\Services\EntityContentService::class); // Assumption: Service exists
-        // Clear existing pages? Or append? Assuming append/update
-        $startOrder = 1;
+        $contentService = app(\App\Services\EntityContentService::class);
+        $startOrder     = (int) $contentService->getMaxOrder($manuscript) + 1;
+        $nodeType       = 'page';
 
         foreach ($pages as $index => $page) {
-            $title = "صفحة {$page['number']}";
+            $title   = "صفحة {$page['number']}";
             $content = trim($page['content']);
-            $nodeId = (string) Str::uuid();
-            $jsonContent = $this->generateJsonContent($title, $content, $nodeId);
-            
-            // Constitutional HTML (from SyncManuscriptPages)
-            $headerHtml = "<h4 class=\"structure-marker\" data-segment-link=\"true\" data-id=\"{$nodeId}\" data-type=\"page\">{$title}</h4>";
-            $contentHtml = "<p>" . nl2br($content) . "</p>";
 
-            $contentService->createNode($manuscript, [
-                'type' => 'page', // ContentNodeType::PAGE->value
-                'title' => $title,
-                'slug' => "page-{$page['number']}-" . Str::random(6),
-                'content' => $headerHtml . $contentHtml,
-                'json_content' => $jsonContent,
-                'plain_text' => $content,
-                'page_number' => $page['number'],
-                'order' => $startOrder + $index
+            // التحقق من التكرار — page_number في metadata JSONB (ليس عمود مباشر)
+            $exists = $manuscript->children()
+                ->whereRaw("(metadata->>'page_number')::int = ?", [$page['number']])
+                ->exists();
+
+            if ($exists) {
+                continue; // تجاوز التكرار بصمت
+            }
+
+            // أنشئ النود أولاً للحصول على ID حقيقي (نفس نمط SyncManuscriptPages)
+            $node = $contentService->createNode($manuscript, [
+                'type'        => $nodeType,
+                'title'       => $title,
+                'slug'        => "page-{$page['number']}-" . \Illuminate\Support\Str::random(6),
+                'content'     => '',
+                'json_content' => [],
+                'plain_text'  => strip_tags($content),
+                'page_number' => $page['number'],   // يصل لـ metadata عبر EntityContentService
+                'order'       => $startOrder + $index,
+            ]);
+
+            // استخدام ID الحقيقي من قاعدة البيانات وليس UUID عشوائي
+            $nodeId      = $node->id;
+            $jsonContent = $this->generateJsonContent($title, $content, $nodeId);
+
+            // كل سطر في فقرة منفصلة (كما كان في MongoDB)
+            $paragraphs  = array_filter(array_map('trim', explode("\n", $content)));
+            $contentHtml = implode('', array_map(fn($l) => "<p>{$l}</p>", $paragraphs));
+            if (empty($contentHtml)) $contentHtml = '<p></p>';
+
+            $headerHtml = "<h4 class=\"structure-marker\" data-segment-link=\"true\" "
+                        . "data-id=\"{$nodeId}\" data-type=\"{$nodeType}\">{$title}</h4>";
+
+            $node->update([
+                'content_html' => $headerHtml . $contentHtml,
+                'content_json' => $jsonContent,
             ]);
         }
+
         $this->info("   + Synced " . count($pages) . " pages to PostgreSQL.");
     }
 

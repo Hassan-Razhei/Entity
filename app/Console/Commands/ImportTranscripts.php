@@ -296,8 +296,10 @@ class ImportTranscripts extends Command
             $endTime = $nextSeg ? $nextSeg['start'] : 0; // 0 means until end/unknown
 
             // Check for duplicate
+            // start_time مخزّنة في metadata JSONB — PostgreSQL يتطلب صيغة whereRaw
+            // (كانت تعمل مع MongoDB حيث start_time حقل مباشر)
             $exists = $media->children()
-                ->where('metadata->start_time', (float) $seg['start'])
+                ->whereRaw("(metadata->>'start_time')::float = ?", [(float) $seg['start']])
                 ->exists();
             
             if ($exists) {
