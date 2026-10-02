@@ -80,7 +80,7 @@ class SeedRealisticData extends Command
         // عند الاستدعاء من الويب (بدون TTY) يتم تخطي التأكيد
         // لأن SystemController تحقق بالفعل من صلاحية المستخدم
         $isTty = stream_isatty(STDOUT);
-        if ($isTty && !app()->runningUnitTests() && !$this->option('force')) {
+        if ($isTty) {
             if (!$this->confirm('⚠️  سيتم حذف جميع البيانات الحالية وإعادة تعبئتها. هل أنت متأكد؟', false)) {
                 $this->info('تم الإلغاء.');
                 return Command::SUCCESS;

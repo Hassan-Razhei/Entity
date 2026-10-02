@@ -29,6 +29,10 @@ class ConsoleCommandsTest extends TestCase
         // 1. Run the command
         $count = 3;
         $this->artisan("project:seed-realistic --count={$count}")
+            ->expectsConfirmation(
+                '⚠️  سيتم حذف جميع البيانات الحالية وإعادة تعبئتها. هل أنت متأكد؟',
+                'yes'
+            )
             ->expectsOutput("Starting exhaustive realistic data seeding (Count: {$count} for each type)...")
             ->expectsOutput("Seeding completed successfully with all relationships!")
             ->assertExitCode(0);
