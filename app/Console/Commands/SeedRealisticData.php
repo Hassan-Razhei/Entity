@@ -76,12 +76,18 @@ class SeedRealisticData extends Command
 
             $this->warn('⚠️  أنت على وشك حذف جميع بيانات الإنتاج وإعادة التعبئة!');
         }
-        // ─── تأكيد المستخدم (في كل البيئات) ─────────────────────────────
-        if (!$this->confirm('⚠️  سيتم حذف جميع البيانات الحالية وإعادة تعبئتها. هل أنت متأكد؟', false)) {
-            $this->info('تم الإلغاء.');
-            return Command::SUCCESS;
+        // ─── تأكيد المستخدم (فقط عند التشغيل التفاعلي من CLI) ───────────
+        // عند الاستدعاء من الويب (بدون TTY) يتم تخطي التأكيد
+        // لأن SystemController تحقق بالفعل من صلاحية المستخدم
+        $isTty = stream_isatty(STDOUT);
+        if ($isTty) {
+            if (!$this->confirm('⚠️  سيتم حذف جميع البيانات الحالية وإعادة تعبئتها. هل أنت متأكد؟', false)) {
+                $this->info('تم الإلغاء.');
+                return Command::SUCCESS;
+            }
         }
         // ──────────────────────────────────────────────────────────────────
+
 
         $count = (int) $this->option('count');
         $this->info("Starting exhaustive realistic data seeding (Count: {$count} for each type)...");

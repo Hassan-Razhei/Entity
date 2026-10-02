@@ -15,11 +15,11 @@ class SystemController extends Controller
     {
         $request->validate([
             'command' => 'required|string',
-            'args' => 'nullable|array'
+            'args'    => 'nullable|array'
         ]);
 
         $command = $request->input('command');
-        $args = $request->input('args', []);
+        $args    = $request->input('args', []);
 
         // Whitelist allowed commands for security
         $allowedCommands = [
@@ -35,8 +35,32 @@ class SystemController extends Controller
             return response()->json(['message' => 'Command not allowed'], 403);
         }
 
+        // ─── تقييد الوصول لأمر seed-realistic لمستخدمين محددين ──────────
+        if ($command === 'project:seed-realistic') {
+            $allowedEmails = array_filter(
+                explode(',', config('app.seed_allowed_users', env('SEED_ALLOWED_USERS', '')))
+            );
+
+            $currentEmail = auth()->user()?->email;
+
+            if (empty($allowedEmails) || !in_array($currentEmail, array_map('trim', $allowedEmails))) {
+                return response()->json([
+                    'message' => 'غير مصرح لك بتشغيل هذا الأمر. تواصل مع مدير النظام.'
+                ], 403);
+            }
+
+            // تمرير --force تلقائياً من الويب (المستخدم وصل هنا = مُخوَّل)
+            // استخدام SEED_SECRET من البيئة
+            $args['--force'] = true;
+            if (app()->environment('production')) {
+                $args['--token'] = config('app.seed_secret', env('SEED_SECRET', ''));
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────
+
         try {
             $output = new BufferedOutput();
+            // تمرير true لـ no-interaction كي لا يتوقف الأمر منتظراً إدخالاً
             Artisan::call($command, $args, $output);
 
             return response()->json([
@@ -45,9 +69,9 @@ class SystemController extends Controller
             ]);
         } catch (\Throwable $e) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => $e->getMessage(),
-                'output' => $e->getTraceAsString()
+                'output'  => $e->getTraceAsString()
             ], 500);
         }
     }
