@@ -36,6 +36,7 @@ class User extends Authenticatable
         'password',
         'last_studio_type',
         'last_studio_slug',
+        'last_studio_child_id',
     ];
 
     /**
