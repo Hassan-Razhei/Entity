@@ -26,16 +26,22 @@ return new class extends Migration {
             $table->longText('content_html')->nullable();
             $table->longText('plain_text')->nullable();
 
-            // حقول الـ JSON الذكية (بديلة وثائق MongoDB)
-            $table->json('content_json')->nullable(); // شجرة محرر Tiptap كاملة
-            $table->json('metadata')->nullable();     // start_time, end_time, folio_number, image_url...
-            $table->json('versions')->nullable();     // سجل النسخ والتعديلات التاريخية
+            // حقول الـ JSONB الذكية (بديلة وثائق MongoDB وتدعم فهارس GIN والاستعلامات السريعة)
+            $table->jsonb('content_json')->nullable(); // شجرة محرر Tiptap كاملة
+            $table->jsonb('metadata')->nullable();     // start_time, end_time, folio_number, image_url...
+            $table->jsonb('versions')->nullable();     // سجل النسخ والتعديلات التاريخية
 
             $table->timestamps();
             $table->softDeletes();
 
             // فهرس مركب فائق السرعة لتصفح واستدعاء شجرة أي كتاب أو مادة بلحظات
             $table->index(['entity_type', 'entity_id', 'parent_id', 'order'], 'idx_content_nodes_tree');
+
+            // فهرس مركب للبحث السريع عن العقد بالـ slug داخل الكيان الواحد (مطابق لفهرس Mongo: manuscript_id + slug)
+            $table->index(['entity_type', 'entity_id', 'slug'], 'idx_content_nodes_entity_slug');
+
+            // فهرس GIN فائق السرعة للبحث والاستعلام المباشر داخل metadata (folio_number, start_time...)
+            $table->index('metadata', 'idx_content_nodes_metadata_gin', 'gin');
         });
 
         // إضافة المفتاح الأجنبي الذاتي للشجرة بعد إنشاء الجدول

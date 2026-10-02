@@ -41,7 +41,7 @@ return new class extends Migration {
             $table->uuidMorphs('entity');
             $table->string('activity_type');
             $table->text('description')->nullable();
-            $table->json('changes')->nullable();
+            $table->jsonb('changes')->nullable();
             $table->timestamps();
 
             $table->index(['entity_id', 'entity_type']);
@@ -55,7 +55,7 @@ return new class extends Migration {
             $table->uuidMorphs('entity');
             $table->foreignUuid('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->text('reason')->nullable();
-            $table->json('data')->nullable();
+            $table->jsonb('data')->nullable();
             $table->timestamp('deleted_at')->useCurrent();
 
             $table->index(['entity_id', 'entity_type']);
