@@ -24,7 +24,7 @@ class DeletionController extends Controller
                           $q->where('name', 'like', "%{$search}%");
                       });
             })
-            ->latest()
+            ->latest('deleted_at')
             ->paginate(20)
             ->withQueryString();
 

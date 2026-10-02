@@ -42,6 +42,8 @@ class AudioController extends EntityController
         ];
     }
 
+    protected function getSyncableRelations(): array { return ['categories', 'tags']; }
+
     /**
      * Hook: Use MediaManagerService for persistence
      */
@@ -52,9 +54,12 @@ class AudioController extends EntityController
         $manager = app(MediaManagerService::class);
         
         if ($model->exists) {
-            $manager->updateMedia($model, $data);
+            $updated = $manager->updateMedia($model, $data);
+            $model->setRawAttributes($updated->getAttributes(), true);
         } else {
-            $manager->createMedia($data);
+            $created = $manager->createMedia($data);
+            $model->setRawAttributes($created->getAttributes(), true);
+            $model->exists = true;
         }
     }
 }
