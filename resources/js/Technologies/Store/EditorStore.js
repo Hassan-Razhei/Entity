@@ -31,8 +31,14 @@ export const useEditorStore = defineStore('editor', () => {
 
     const loadDocument = (entity, contentNode, hierarchyData = [], navigationData = {}) => {
         currentEntity.value = entity
-        currentContentNode.value = contentNode
-        content.value = contentNode.content || ''
+        const nodeContent = contentNode?.content !== undefined 
+            ? contentNode.content 
+            : (contentNode?.content_html ?? contentNode?.html_content ?? '')
+        currentContentNode.value = contentNode ? {
+            ...contentNode,
+            content: nodeContent
+        } : null
+        content.value = nodeContent
         hierarchy.value = hierarchyData
         navigation.value = navigationData
         contentVersion.value = 0
@@ -128,7 +134,7 @@ export const useEditorStore = defineStore('editor', () => {
     const save = async () => {
         if (!currentContentNode.value || !currentEntity.value) {
             console.error('[EditorStore] Cannot save: missing entity or content node')
-            return
+            return false
         }
 
         isSaving.value = true
@@ -136,9 +142,14 @@ export const useEditorStore = defineStore('editor', () => {
         try {
             const childId = currentContentNode.value.id === 'full' ? 'full' : (currentContentNode.value._id || currentContentNode.value.id)
 
+            // Sync latest content from editor if active
+            if (editor.value) {
+                content.value = editor.value.getHTML()
+            }
+
             const payload = {
                 child_id: childId,
-                title: currentContentNode.value.title,
+                title: currentContentNode.value.title || '',
                 content: content.value,
                 html_content: content.value,
                 plain_text: editor.value?.getText() || '',
@@ -192,12 +203,35 @@ export const useEditorStore = defineStore('editor', () => {
                 payload
             )
 
-            lastSaved.value = new Date()
+            lastSaved.value = new Date(response.data.last_saved || new Date())
             lastSaveMessage.value = response.data.message || 'تم الحفظ بنجاح'
+
+            // Sync local node state so hasUnsavedChanges immediately becomes false
+            if (currentContentNode.value) {
+                currentContentNode.value.content = content.value
+                currentContentNode.value.content_html = content.value
+                currentContentNode.value.html_content = content.value
+            }
+
+            // Also update node in currentEntity.children
+            if (currentEntity.value?.children && childId !== 'full') {
+                const targetChild = currentEntity.value.children.find(c => 
+                    (c.id === childId || c._id === childId || c.slug === childId)
+                )
+                if (targetChild) {
+                    targetChild.title = currentContentNode.value.title
+                    targetChild.content = content.value
+                    targetChild.content_html = content.value
+                    targetChild.html_content = content.value
+                }
+            }
+
             console.log('[EditorStore] Content saved successfully:', lastSaveMessage.value)
+            return true
         } catch (error) {
             console.error('[EditorStore] Save failed:', error)
-            throw error
+            alert('فشل الحفظ: ' + (error.response?.data?.message || error.message))
+            return false
         } finally {
             isSaving.value = false
         }

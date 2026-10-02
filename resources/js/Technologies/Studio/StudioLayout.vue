@@ -52,7 +52,8 @@ onMounted(() => {
     if (props.isFullView) {
         store.loadDocument(props.entity, { id: 'full', title: 'كامل المحتوى', content: props.editorContent }, [], {})
     } else if (props.contentNode) {
-        store.loadDocument(props.entity, props.contentNode, [], {})
+        const nodeContent = props.contentNode.content ?? props.contentNode.content_html ?? props.editorContent ?? '';
+        store.loadDocument(props.entity, { ...props.contentNode, content: nodeContent }, [], {})
         
         // Seek player if applicable
         if (props.contentNode.start_time !== undefined) {
@@ -60,7 +61,8 @@ onMounted(() => {
         }
     } else if (props._legacy?.contentNode) {
         // Fallback for safety during transition
-        store.loadDocument(props.entity, props._legacy.contentNode, [], {})
+        const nodeContent = props._legacy.contentNode.content ?? props._legacy.contentNode.content_html ?? props.editorContent ?? '';
+        store.loadDocument(props.entity, { ...props._legacy.contentNode, content: nodeContent }, [], {})
         if (props._legacy.contentNode.start_time !== undefined) {
             mediaStore.requestSeek(props._legacy.contentNode.start_time);
         }
@@ -72,14 +74,28 @@ onMounted(() => {
         console.log('[StudioLayout] Test Set Time:', e.detail);
         mediaStore.setCurrentTime(e.detail);
     });
+
+    window.addEventListener('keydown', handleGlobalKeydown);
 })
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleGlobalKeydown);
+})
+
+const handleGlobalKeydown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        store.save();
+    }
+};
 
 // Watch for content node changes (when navigating between segments/pages)
 watch(() => props.activeChildId, (newId, oldId) => {
     if (newId !== oldId && !props.isFullView) {
         const nodeToLoad = props.contentNode || props._legacy?.contentNode;
         if (nodeToLoad) {
-            store.loadDocument(props.entity, nodeToLoad, [], {})
+            const nodeContent = nodeToLoad.content ?? nodeToLoad.content_html ?? props.editorContent ?? '';
+            store.loadDocument(props.entity, { ...nodeToLoad, content: nodeContent }, [], {})
             
             if (nodeToLoad.start_time !== undefined) {
                 mediaStore.requestSeek(nodeToLoad.start_time);
@@ -97,9 +113,12 @@ watch(() => props._legacy?.contentNode?.title, (newTitle) => {
 });
 
 watch(() => props.editorContent, (newContent) => {
-    if (newContent && store.content !== newContent) {
+    if (newContent !== undefined && store.content !== newContent) {
         console.log('[StudioLayout] Syncing content from props (Server Update)');
         store.updateContent(newContent);
+        if (store.currentContentNode) {
+            store.currentContentNode.content = newContent;
+        }
     }
 });
 
@@ -162,14 +181,18 @@ const availableNodes = computed(() => {
             id: c._id || c.id,
             slug: c.slug,
             title: c.title || `مقطع #${c.order || '?'}`,
-            start: c.start_time !== undefined ? c.start_time : (c.start !== undefined ? c.start : (c.metadata?.start_time !== undefined ? c.metadata.start_time : undefined))
+            start: c.start_time !== undefined ? c.start_time : (c.start !== undefined ? c.start : (c.metadata?.start_time !== undefined ? c.metadata.start_time : undefined)),
+            content: c.content ?? c.content_html ?? c.plain_text ?? '',
+            html_content: c.html_content ?? c.content_html ?? c.content ?? ''
         }))
     } else if (props._legacy && props._legacy.hierarchy) {
         propNodes = props._legacy.hierarchy.map(c => ({
             id: c._id || c.id,
             slug: c.slug,
             title: c.title || 'بدون عنوان',
-            start: c.start_time !== undefined ? c.start_time : (c.start !== undefined ? c.start : (c.metadata?.start_time !== undefined ? c.metadata.start_time : undefined))
+            start: c.start_time !== undefined ? c.start_time : (c.start !== undefined ? c.start : (c.metadata?.start_time !== undefined ? c.metadata.start_time : undefined)),
+            content: c.content ?? c.content_html ?? c.plain_text ?? '',
+            html_content: c.html_content ?? c.content_html ?? c.content ?? ''
         }))
     }
 
@@ -179,7 +202,8 @@ const availableNodes = computed(() => {
         slug: s.slug,
         title: s.label || s.title || 'مقطع غير مسمى',
         start: s.start,
-        content: s.content, // Ensure content is passed if available
+        content: s.content ?? s.content_html ?? '',
+        html_content: s.html_content ?? s.content_html ?? '',
         isEphemeral: true
     }));
 
@@ -224,11 +248,11 @@ const navigateToNode = (node) => {
     
     // OPTIMIZATION: Client-Side Switching vs Server Round-Trip
     // If the node has content available, we switch locally!
-    if (node.content || node.html_content) {
+    if (node.content !== undefined || node.html_content !== undefined) {
         console.log('[StudioLayout] Client-side switch to node:', node.title);
         
         // 1. Load into Store
-        const content = node.content || node.html_content || '';
+        const content = node.content !== undefined ? node.content : (node.html_content || '');
         store.loadDocument(props.entity, { 
             id: node.id, 
             slug: node.slug,
@@ -243,15 +267,20 @@ const navigateToNode = (node) => {
              mediaStore.requestSeek(time);
         }
 
-        // 3. Update URL
+        // 3. Update active segment in MediaStore
+        if (node.slug) {
+            mediaStore.setActiveSegment(node.slug);
+        }
+
+        // 4. Update URL
         const newUrl = route('studio.show', { type: props.type, slug: props.entity.slug, childId: node._id || node.id || node.slug });
         window.history.pushState({}, '', newUrl);
 
-        // 4. Reset Scroll
+        // 5. Reset Scroll
         window.scrollTo({ top: 0, behavior: 'instant' });
     } else {  
         // Fallback: Server Round-Trip
-        router.visit(route('studio.show', { type: props.type, slug: props.entity.slug, childId: node.id }))
+        router.visit(route('studio.show', { type: props.type, slug: props.entity.slug, childId: node.id || node.slug }))
     }
 }
 

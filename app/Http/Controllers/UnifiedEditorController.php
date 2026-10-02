@@ -128,6 +128,7 @@ class UnifiedEditorController extends Controller
             'editorContent' => $currentEditorContent,
             'fullContent' => $fullContent,
             'isFullView' => $isFullView,
+            'contentNode' => (!$isFullView && $node) ? $node : null,
             'activeChildId' => $isFullView ? null : $node?->id,
             'title' => $entity->title . ' | Entity Studio',
             'visual_map' => ContentNodeType::getVisualMap($entityType),
@@ -138,12 +139,12 @@ class UnifiedEditorController extends Controller
     }
 
     /**
-     * حفظ المحتوى: /studio/{type}/{slug}/{childId?}/save
+     * حفظ المحتوى: /studio/{type}/{slug}/{childId?} /save
      */
     public function save(Request $request, string $type, string $slug, ?string $childId = null)
     {
         $request->validate([
-            'content' => 'required',
+            'content' => 'nullable',
             'html_content' => 'nullable|string',
             'json_content' => 'nullable|array',
             'plain_text' => 'nullable|string',
@@ -200,9 +201,9 @@ class UnifiedEditorController extends Controller
             $updateData['content_json'] = $payload['json'] ?? [];
             $updateData['plain_text'] = $payload['text'] ?? strip_tags($updateData['content_html']);
         } else {
-            $html = $request->input('html_content') ?? $request->input('content');
+            $html = $request->input('html_content') ?? $request->input('content') ?? '';
             $updateData['content_html'] = $html;
-            $updateData['plain_text'] = $request->input('plain_text') ?? strip_tags($html);
+            $updateData['plain_text'] = $request->input('plain_text') ?? strip_tags($html ?? '');
             if ($request->has('json_content')) {
                 $updateData['content_json'] = $request->input('json_content');
             }

@@ -76,7 +76,7 @@ class ContentNode extends Model
         'versions' => 'array',
     ];
 
-    protected $appends = ['_id', 'start_time', 'end_time', 'image_url', 'folio_number'];
+    protected $appends = ['_id', 'start_time', 'end_time', 'image_url', 'folio_number', 'content', 'html_content'];
 
     protected static function booted()
     {
@@ -210,6 +210,16 @@ class ContentNode extends Model
     {
         $this->attributes['content_html'] = $value;
         $this->attributes['plain_text'] = $value ? strip_tags($value) : null;
+    }
+
+    public function getHtmlContentAttribute(): ?string
+    {
+        return $this->content_html;
+    }
+
+    public function setHtmlContentAttribute(?string $value): void
+    {
+        $this->setContentAttribute($value);
     }
 
     /**
